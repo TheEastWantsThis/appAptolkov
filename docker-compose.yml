@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: apotolkov-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: apotolkov
+      POSTGRES_USER: apotolkov
+      POSTGRES_PASSWORD: apotolkov_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - apotolkov_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apotolkov -d apotolkov"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  apotolkov_postgres_data:

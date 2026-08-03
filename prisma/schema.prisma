@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PermissionEffect {
+  ALLOW
+  DENY
+}
+
+model User {
+  id                  String           @id @default(uuid()) @db.Uuid
+  email               String           @unique @db.VarChar(254)
+  emailVerified       DateTime?
+  login               String           @unique @db.VarChar(64)
+  name                String           @db.VarChar(160)
+  image               String?
+  passwordHash        String
+  isActive            Boolean          @default(true)
+  blockedAt           DateTime?
+  blockedReason       String?          @db.VarChar(500)
+  mustChangePassword  Boolean          @default(false)
+  passwordChangedAt   DateTime         @default(now())
+  lastLoginAt         DateTime?
+  sessionVersion      Int              @default(1)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  archivedAt          DateTime?
+  accounts            Account[]
+  sessions            Session[]
+  roles               UserRole[]       @relation("UserRoles")
+  assignedRoles       UserRole[]       @relation("RoleAssignedBy")
+  permissionOverrides UserPermission[] @relation("UserPermissions")
+  assignedPermissions UserPermission[] @relation("PermissionAssignedBy")
+  auditLogs           AuditLog[]       @relation("AuditActor")
+
+  @@index([isActive, archivedAt])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(64)
+  name        String           @db.VarChar(120)
+  description String?          @db.VarChar(500)
+  isSystem    Boolean          @default(true)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([isActive])
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(100)
+  name        String           @db.VarChar(160)
+  description String?          @db.VarChar(500)
+  category    String           @db.VarChar(64)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
+  users       UserPermission[]
+
+  @@index([category])
+  @@map("permissions")
+}
+
+model UserRole {
+  userId       String    @db.Uuid
+  roleId       String    @db.Uuid
+  assignedById String?   @db.Uuid
+  assignedAt   DateTime  @default(now())
+  expiresAt    DateTime?
+  user         User      @relation("UserRoles", fields: [userId], references: [id], onDelete: Restrict)
+  role         Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  assignedBy   User?     @relation("RoleAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([expiresAt])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  createdAt    DateTime   @default(now())
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  userId       String           @db.Uuid
+  permissionId String           @db.Uuid
+  effect       PermissionEffect
+  assignedById String?          @db.Uuid
+  reason       String?          @db.VarChar(500)
+  expiresAt    DateTime?
+  createdAt    DateTime         @default(now())
+  user         User             @relation("UserPermissions", fields: [userId], references: [id], onDelete: Restrict)
+  permission   Permission       @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+  assignedBy   User?            @relation("PermissionAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+  @@index([expiresAt])
+  @@map("user_permissions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @db.VarChar(100)
+  entityId   String?  @db.VarChar(100)
+  summary    String   @db.VarChar(500)
+  beforeData Json?
+  afterData  Json?
+  metadata   Json?
+  requestId  String?  @db.VarChar(100)
+  ipHash     String?  @db.VarChar(128)
+  userAgent  String?  @db.VarChar(500)
+  occurredAt DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([actorId, occurredAt(sort: Desc)])
+  @@index([entityType, entityId, occurredAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model Account {
+  userId            String  @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String
+  refreshToken      String? @map("refresh_token")
+  accessToken       String? @map("access_token")
+  expiresAt         Int?    @map("expires_at")
+  tokenType         String? @map("token_type")
+  scope             String?
+  idToken           String? @map("id_token")
+  sessionState      String? @map("session_state")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @unique @map("session_token")
+  userId       String   @db.Uuid
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+  @@map("verification_tokens")
+}
