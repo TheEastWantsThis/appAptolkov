@@ -47,6 +47,7 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     PERMISSIONS.ESTIMATE_READ,
     PERMISSIONS.ESTIMATE_CLIENT_PRICE_READ,
     PERMISSIONS.ESTIMATE_CLIENT_PRICE_MANAGE,
+    PERMISSIONS.INSTALLATION_SCHEDULE,
   ],
   [SYSTEM_ROLES.MEASURER]: [
     ...BASIC_PERMISSIONS,
@@ -56,7 +57,11 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     PERMISSIONS.ESTIMATE_READ,
     PERMISSIONS.ESTIMATE_CREATE,
   ],
-  [SYSTEM_ROLES.INSTALLER]: [...BASIC_PERMISSIONS, PERMISSIONS.PROJECT_READ],
+  [SYSTEM_ROLES.INSTALLER]: [
+    ...BASIC_PERMISSIONS,
+    PERMISSIONS.INSTALLATION_ASSIGNED_READ,
+    PERMISSIONS.INSTALLATION_ASSIGNED_MANAGE,
+  ],
   [SYSTEM_ROLES.WAREHOUSE_MANAGER]: BASIC_PERMISSIONS,
   [SYSTEM_ROLES.FINANCE_MANAGER]: [
     ...BASIC_PERMISSIONS,
@@ -272,6 +277,9 @@ async function main() {
     where: { login: "measurer" },
   });
 
+  const installer = await prisma.user.findUniqueOrThrow({
+    where: { login: "installer" },
+  });
   const demoLead = await prisma.lead.upsert({
     where: { phoneNormalized: "79991112233" },
     create: {
@@ -383,6 +391,49 @@ async function main() {
     where: { projectId: demoProject.id, measurementId: null },
     data: { measurementId: demoMeasurement.id },
   });
+  const existingInstallation = await prisma.installation.findFirst({
+    where: { projectId: demoProject.id },
+  });
+  if (!existingInstallation) {
+    const startsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const endsAt = new Date(startsAt.getTime() + 4 * 60 * 60 * 1000);
+    const installation = await prisma.installation.create({
+      data: {
+        projectId: demoProject.id,
+        startsAt,
+        endsAt,
+        vehicle: "Фургон № 1",
+        plannedMaterials: ["Полотно", "Профиль", "Крепёж"],
+        plannedTools: ["Перфоратор", "Лазерный уровень"],
+        technicalBrief:
+          "Монтаж потолков в гостиной и спальне по данным замера.",
+        specialConditions: "Согласовать шумные работы с заказчиком.",
+        crewComment: "Проверить комплектацию перед выездом.",
+        participants: {
+          create: { userId: installer.id, isForeman: true },
+        },
+        calendarEvents: {
+          create: {
+            projectId: demoProject.id,
+            assigneeId: installer.id,
+            type: "INSTALLATION",
+            title: "Демонстрационный монтаж",
+            startsAt,
+            endsAt,
+          },
+        },
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        actorId: admin.id,
+        action: "INSTALLATION_SEED",
+        entityType: "Installation",
+        entityId: installation.id,
+        summary: "Создан демонстрационный монтаж",
+      },
+    });
+  }
   await prisma.auditLog.create({
     data: {
       actorId: admin.id,

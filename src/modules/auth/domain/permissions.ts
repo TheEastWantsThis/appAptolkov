@@ -21,6 +21,9 @@ export const PERMISSIONS = {
   ESTIMATE_CLIENT_PRICE_MANAGE: "estimate.client-price.manage",
   ESTIMATE_INTERNAL_PRICE_READ: "estimate.internal-price.read",
   TARIFF_MANAGE: "tariff.manage",
+  INSTALLATION_SCHEDULE: "installation.schedule",
+  INSTALLATION_ASSIGNED_READ: "installation.assigned.read",
+  INSTALLATION_ASSIGNED_MANAGE: "installation.assigned.manage",
   CUSTOMER_PHONE_READ: "customer.phone.read",
 } as const;
 
@@ -176,5 +179,23 @@ export const PERMISSION_DEFINITIONS: ReadonlyArray<{
     "Управление тарифами",
     "Изменение стоимости материалов, работ, зон и коэффициентов",
     "Сметы",
+  ),
+  definition(
+    PERMISSIONS.INSTALLATION_SCHEDULE,
+    "Назначение монтажей",
+    "Создание выездов и назначение монтажных бригад",
+    "Монтажи",
+  ),
+  definition(
+    PERMISSIONS.INSTALLATION_ASSIGNED_READ,
+    "Назначенные монтажи",
+    "Просмотр только монтажей назначенного сотрудника",
+    "Монтажи",
+  ),
+  definition(
+    PERMISSIONS.INSTALLATION_ASSIGNED_MANAGE,
+    "Ход монтажа",
+    "Статусы, фотографии и фактические материалы своего монтажа",
+    "Монтажи",
   ),
 ];

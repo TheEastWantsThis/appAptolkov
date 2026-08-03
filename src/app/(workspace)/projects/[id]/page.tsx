@@ -3,6 +3,7 @@ import {
   CalendarDays,
   FileText,
   History,
+  HardHat,
   MapPin,
   Phone,
   Users,
@@ -72,9 +73,19 @@ export default async function ProjectPage({
         title={project.number}
         description={project.customer.name}
         action={
-          <Badge variant="success">
-            {PROJECT_STATUS_LABELS[project.status]}
-          </Badge>
+          <div className="flex flex-wrap gap-2">
+            {project.canScheduleInstallation ? (
+              <Button asChild size="sm">
+                <Link href={"/installations/new?projectId=" + project.id}>
+                  <HardHat />
+                  Назначить монтаж
+                </Link>
+              </Button>
+            ) : null}
+            <Badge variant="success">
+              {PROJECT_STATUS_LABELS[project.status]}
+            </Badge>
+          </div>
         }
       />
       <div className="grid gap-5 xl:grid-cols-[1fr_380px]">

@@ -6,6 +6,7 @@ import {
   BookOpenCheck,
   BriefcaseBusiness,
   Home,
+  HardHat,
   Megaphone,
   Search,
   Ruler,
@@ -52,6 +53,16 @@ const ITEMS: readonly NavigationItem[] = [
     label: "Проекты",
     icon: BriefcaseBusiness,
     permission: PERMISSIONS.PROJECT_READ,
+    mobile: true,
+  },
+  {
+    href: "/installations",
+    label: "Монтажи",
+    icon: HardHat,
+    anyPermissions: [
+      PERMISSIONS.INSTALLATION_ASSIGNED_READ,
+      PERMISSIONS.INSTALLATION_SCHEDULE,
+    ],
     mobile: true,
   },
   {
