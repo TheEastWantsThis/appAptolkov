@@ -17,3 +17,6 @@ npm-debug.log*
 
 .runtime/
 tools/cloudflared.exe
+
+.vercel
+.env*
