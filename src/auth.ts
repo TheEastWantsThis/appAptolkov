@@ -39,7 +39,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const passwordMatches = await verifyPassword(user.passwordHash, parsed.data.password);
+        const passwordMatches = await verifyPassword(
+          user.passwordHash,
+          parsed.data.password,
+        );
         if (!passwordMatches) {
           return null;
         }

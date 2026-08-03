@@ -68,7 +68,7 @@ export default async function DashboardPage() {
     <div className="space-y-7">
       <PageHeader
         title={`Здравствуйте, ${context.name.split(" ")[0] ?? context.name}`}
-        description="Каркас управления доступом работает. Следующие бизнес-модули будут подключаться к тем же серверным политикам."
+        description="Лиды и клиентские проекты подключены к серверным политикам доступа и журналу действий."
         action={<Badge variant="success">Система доступна</Badge>}
       />
 
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
             <div className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-white/14">
               <Sparkles className="size-5" />
             </div>
-            <CardTitle className="text-2xl">Основа CRM готова</CardTitle>
+            <CardTitle className="text-2xl">Лиды и проекты готовы</CardTitle>
             <CardDescription className="max-w-md text-blue-100/75">
               Авторизация, роли, серверный RBAC и аудит уже образуют защищённый
               фундамент для лидов, замеров и монтажа.

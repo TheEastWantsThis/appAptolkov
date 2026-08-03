@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpenCheck,
+  BriefcaseBusiness,
   Home,
+  Megaphone,
+  Search,
   ScrollText,
   ShieldCheck,
   UserRound,
@@ -23,6 +26,7 @@ interface NavigationItem {
   label: string;
   icon: LucideIcon;
   permission?: PermissionCode;
+  anyPermissions?: readonly PermissionCode[];
   mobile?: boolean;
 }
 
@@ -31,6 +35,27 @@ const ITEMS: readonly NavigationItem[] = [
     href: "/dashboard",
     label: "Главная",
     icon: Home,
+    permission: PERMISSIONS.DASHBOARD_READ,
+    mobile: true,
+  },
+  {
+    href: "/leads",
+    label: "Лиды",
+    icon: Megaphone,
+    anyPermissions: [PERMISSIONS.LEAD_OWN_READ, PERMISSIONS.LEAD_READ],
+    mobile: true,
+  },
+  {
+    href: "/projects",
+    label: "Проекты",
+    icon: BriefcaseBusiness,
+    permission: PERMISSIONS.PROJECT_READ,
+    mobile: true,
+  },
+  {
+    href: "/search",
+    label: "Поиск",
+    icon: Search,
     permission: PERMISSIONS.DASHBOARD_READ,
     mobile: true,
   },
@@ -81,7 +106,12 @@ export function DesktopSidebar({
 }) {
   const pathname = usePathname();
   const visible = ITEMS.filter(
-    (item) => !item.permission || permissions.includes(item.permission),
+    (item) =>
+      (!item.permission || permissions.includes(item.permission)) &&
+      (!item.anyPermissions ||
+        item.anyPermissions.some((permission) =>
+          permissions.includes(permission),
+        )),
   );
 
   return (
@@ -152,7 +182,11 @@ export function MobileBottomNavigation({
   const visible = ITEMS.filter(
     (item) =>
       item.mobile &&
-      (!item.permission || permissions.includes(item.permission)),
+      (!item.permission || permissions.includes(item.permission)) &&
+      (!item.anyPermissions ||
+        item.anyPermissions.some((permission) =>
+          permissions.includes(permission),
+        )),
   ).slice(0, 5);
 
   return (

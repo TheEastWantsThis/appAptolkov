@@ -12,31 +12,114 @@ enum PermissionEffect {
   DENY
 }
 
+enum LeadSource {
+  PROMOTER
+  WEBSITE
+  PHONE
+  REFERRAL
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  IN_PROGRESS
+  CONTACTED
+  QUALIFIED
+  DECLINED
+  CONVERTED
+}
+
+enum HousingType {
+  APARTMENT
+  HOUSE
+  COMMERCIAL
+  NEW_BUILD
+  OTHER
+}
+
+enum CallResult {
+  NO_ANSWER
+  CALLBACK
+  INTERESTED
+  MEASUREMENT
+  DECLINED
+  WRONG_NUMBER
+}
+
+enum WorkTaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum WorkTaskType {
+  CALL
+  FOLLOW_UP
+  MEASUREMENT
+  GENERAL
+}
+
+enum ProjectStatus {
+  QUALIFIED
+  MEASUREMENT_SCHEDULED
+  MEASURED
+  ESTIMATE_PREPARATION
+  CONTRACT_PENDING
+  CONTRACT_SIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum CalendarEventType {
+  CALL
+  MEASUREMENT
+  MEETING
+  INSTALLATION
+  DEADLINE
+  OTHER
+}
+
 model User {
-  id                  String           @id @default(uuid()) @db.Uuid
-  email               String           @unique @db.VarChar(254)
+  id                  String                     @id @default(uuid()) @db.Uuid
+  email               String                     @unique @db.VarChar(254)
   emailVerified       DateTime?
-  login               String           @unique @db.VarChar(64)
-  name                String           @db.VarChar(160)
+  login               String                     @unique @db.VarChar(64)
+  name                String                     @db.VarChar(160)
   image               String?
   passwordHash        String
-  isActive            Boolean          @default(true)
+  isActive            Boolean                    @default(true)
   blockedAt           DateTime?
-  blockedReason       String?          @db.VarChar(500)
-  mustChangePassword  Boolean          @default(false)
-  passwordChangedAt   DateTime         @default(now())
+  blockedReason       String?                    @db.VarChar(500)
+  mustChangePassword  Boolean                    @default(false)
+  passwordChangedAt   DateTime                   @default(now())
   lastLoginAt         DateTime?
-  sessionVersion      Int              @default(1)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  sessionVersion      Int                        @default(1)
+  createdAt           DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
   archivedAt          DateTime?
   accounts            Account[]
   sessions            Session[]
-  roles               UserRole[]       @relation("UserRoles")
-  assignedRoles       UserRole[]       @relation("RoleAssignedBy")
-  permissionOverrides UserPermission[] @relation("UserPermissions")
-  assignedPermissions UserPermission[] @relation("PermissionAssignedBy")
-  auditLogs           AuditLog[]       @relation("AuditActor")
+  roles               UserRole[]                 @relation("UserRoles")
+  assignedRoles       UserRole[]                 @relation("RoleAssignedBy")
+  permissionOverrides UserPermission[]           @relation("UserPermissions")
+  assignedPermissions UserPermission[]           @relation("PermissionAssignedBy")
+  auditLogs           AuditLog[]                 @relation("AuditActor")
+  authoredLeads       Lead[]                     @relation("LeadAuthor")
+  operatedLeads       Lead[]                     @relation("LeadOperator")
+  measuredLeads       Lead[]                     @relation("LeadMeasurer")
+  callLogs            CallLog[]                  @relation("CallAuthor")
+  assignedTasks       WorkTask[]                 @relation("TaskAssignee")
+  createdTasks        WorkTask[]                 @relation("TaskAuthor")
+  createdProjects     Project[]                  @relation("ProjectCreator")
+  projectAssignments  ProjectResponsible[]
+  projectComments     ProjectComment[]
+  uploadedFiles       ProjectFile[]
+  statusChanges       ProjectStatusHistory[]
+  assignmentChanges   ProjectAssignmentHistory[] @relation("AssignmentChangedBy")
+  assignedInHistory   ProjectAssignmentHistory[] @relation("AssignmentUser")
+  calendarEvents      CalendarEvent[]            @relation("EventAssignee")
 
   @@index([isActive, archivedAt])
   @@map("users")
@@ -139,6 +222,229 @@ model AuditLog {
   @@index([actorId, occurredAt(sort: Desc)])
   @@index([entityType, entityId, occurredAt(sort: Desc)])
   @@map("audit_logs")
+}
+
+model Lead {
+  id                String       @id @default(uuid()) @db.Uuid
+  clientName        String?      @db.VarChar(160)
+  phone             String       @db.VarChar(32)
+  phoneNormalized   String       @unique @db.VarChar(20)
+  districtOrAddress String?      @db.VarChar(500)
+  housingType       HousingType?
+  roomsApprox       Int?
+  repairTimeline    String?      @db.VarChar(160)
+  preferredCallTime String?      @db.VarChar(160)
+  comment           String?      @db.VarChar(2000)
+  adPoint           String?      @db.VarChar(200)
+  contactConsent    Boolean
+  source            LeadSource   @default(PROMOTER)
+  status            LeadStatus   @default(NEW)
+  declineReason     String?      @db.VarChar(500)
+  measurementAt     DateTime?
+  authorId          String       @db.Uuid
+  operatorId        String?      @db.Uuid
+  measurerId        String?      @db.Uuid
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  qualifiedAt       DateTime?
+  author            User         @relation("LeadAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  operator          User?        @relation("LeadOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  measurer          User?        @relation("LeadMeasurer", fields: [measurerId], references: [id], onDelete: SetNull)
+  calls             CallLog[]
+  tasks             WorkTask[]
+  project           Project?
+
+  @@index([status, createdAt])
+  @@index([authorId, createdAt])
+  @@index([operatorId, status])
+  @@map("leads")
+}
+
+model CallLog {
+  id            String     @id @default(uuid()) @db.Uuid
+  leadId        String     @db.Uuid
+  authorId      String     @db.Uuid
+  result        CallResult
+  note          String?    @db.VarChar(2000)
+  nextContactAt DateTime?
+  calledAt      DateTime   @default(now())
+  lead          Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author        User       @relation("CallAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([leadId, calledAt(sort: Desc)])
+  @@index([nextContactAt])
+  @@map("call_logs")
+}
+
+model Customer {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @db.VarChar(160)
+  phone           String    @db.VarChar(32)
+  phoneNormalized String    @unique @db.VarChar(20)
+  address         String?   @db.VarChar(500)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  projects        Project[]
+
+  @@map("customers")
+}
+
+model Project {
+  id                String                     @id @default(uuid()) @db.Uuid
+  number            String                     @unique @db.VarChar(32)
+  customerId        String                     @db.Uuid
+  leadId            String?                    @unique @db.Uuid
+  source            LeadSource
+  status            ProjectStatus              @default(QUALIFIED)
+  address           String                     @db.VarChar(500)
+  description       String?                    @db.VarChar(2000)
+  createdById       String                     @db.Uuid
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  customer          Customer                   @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead              Lead?                      @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  createdBy         User                       @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  responsibles      ProjectResponsible[]
+  tasks             WorkTask[]
+  comments          ProjectComment[]
+  files             ProjectFile[]
+  statusHistory     ProjectStatusHistory[]
+  assignmentHistory ProjectAssignmentHistory[]
+  events            CalendarEvent[]
+  rooms             ProjectRoom[]
+
+  @@index([status, updatedAt])
+  @@index([customerId])
+  @@map("projects")
+}
+
+model WorkTask {
+  id          String         @id @default(uuid()) @db.Uuid
+  title       String         @db.VarChar(300)
+  description String?        @db.VarChar(2000)
+  type        WorkTaskType   @default(GENERAL)
+  status      WorkTaskStatus @default(OPEN)
+  dueAt       DateTime?
+  completedAt DateTime?
+  leadId      String?        @db.Uuid
+  projectId   String?        @db.Uuid
+  assigneeId  String?        @db.Uuid
+  authorId    String         @db.Uuid
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  project     Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?          @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  author      User           @relation("TaskAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([assigneeId, status, dueAt])
+  @@index([leadId])
+  @@index([projectId])
+  @@map("work_tasks")
+}
+
+model ProjectResponsible {
+  projectId  String   @db.Uuid
+  userId     String   @db.Uuid
+  roleLabel  String   @db.VarChar(100)
+  assignedAt DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([projectId, userId, roleLabel])
+  @@index([userId])
+  @@map("project_responsibles")
+}
+
+model ProjectComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String   @db.VarChar(3000)
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("project_comments")
+}
+
+model ProjectFile {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  uploadedById String   @db.Uuid
+  name         String   @db.VarChar(255)
+  storageKey   String   @db.VarChar(500)
+  mimeType     String   @db.VarChar(120)
+  size         Int
+  createdAt    DateTime @default(now())
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt(sort: Desc)])
+  @@map("project_files")
+}
+
+model ProjectStatusHistory {
+  id          String         @id @default(uuid()) @db.Uuid
+  projectId   String         @db.Uuid
+  fromStatus  ProjectStatus?
+  toStatus    ProjectStatus
+  changedById String         @db.Uuid
+  comment     String?        @db.VarChar(1000)
+  changedAt   DateTime       @default(now())
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changedBy   User           @relation(fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, changedAt(sort: Desc)])
+  @@map("project_status_history")
+}
+
+model ProjectAssignmentHistory {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  userId      String?  @db.Uuid
+  roleLabel   String   @db.VarChar(100)
+  action      String   @db.VarChar(32)
+  changedById String   @db.Uuid
+  changedAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User?    @relation("AssignmentUser", fields: [userId], references: [id], onDelete: SetNull)
+  changedBy   User     @relation("AssignmentChangedBy", fields: [changedById], references: [id], onDelete: Restrict)
+
+  @@index([projectId, changedAt(sort: Desc)])
+  @@map("project_assignment_history")
+}
+
+model CalendarEvent {
+  id         String            @id @default(uuid()) @db.Uuid
+  projectId  String            @db.Uuid
+  assigneeId String?           @db.Uuid
+  type       CalendarEventType
+  title      String            @db.VarChar(300)
+  startsAt   DateTime
+  endsAt     DateTime?
+  note       String?           @db.VarChar(1000)
+  createdAt  DateTime          @default(now())
+  project    Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee   User?             @relation("EventAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, startsAt])
+  @@index([assigneeId, startsAt])
+  @@map("calendar_events")
+}
+
+model ProjectRoom {
+  id          String   @id @default(uuid()) @db.Uuid
+  projectId   String   @db.Uuid
+  name        String   @db.VarChar(160)
+  area        Decimal? @db.Decimal(10, 2)
+  description String?  @db.VarChar(1000)
+  sortOrder   Int      @default(0)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, sortOrder])
+  @@map("project_rooms")
 }
 
 model Account {

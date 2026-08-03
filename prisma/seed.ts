@@ -31,21 +31,29 @@ const BASIC_PERMISSIONS: PermissionCode[] = [
 
 const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
   [SYSTEM_ROLES.ADMIN]: PERMISSION_DEFINITIONS.map(({ code }) => code),
-  [SYSTEM_ROLES.PROMOTER]: BASIC_PERMISSIONS,
-  [SYSTEM_ROLES.AD_OPERATOR]: BASIC_PERMISSIONS,
-  [SYSTEM_ROLES.MEASURER]: BASIC_PERMISSIONS,
-  [SYSTEM_ROLES.INSTALLER]: BASIC_PERMISSIONS,
+  [SYSTEM_ROLES.PROMOTER]: [
+    ...BASIC_PERMISSIONS,
+    PERMISSIONS.LEAD_CREATE,
+    PERMISSIONS.LEAD_OWN_READ,
+  ],
+  [SYSTEM_ROLES.AD_OPERATOR]: [
+    ...BASIC_PERMISSIONS,
+    PERMISSIONS.LEAD_OWN_READ,
+    PERMISSIONS.LEAD_READ,
+    PERMISSIONS.LEAD_MANAGE,
+    PERMISSIONS.PROJECT_READ,
+    PERMISSIONS.PROJECT_MANAGE,
+    PERMISSIONS.CUSTOMER_PHONE_READ,
+  ],
+  [SYSTEM_ROLES.MEASURER]: [...BASIC_PERMISSIONS, PERMISSIONS.PROJECT_READ],
+  [SYSTEM_ROLES.INSTALLER]: [...BASIC_PERMISSIONS, PERMISSIONS.PROJECT_READ],
   [SYSTEM_ROLES.WAREHOUSE_MANAGER]: BASIC_PERMISSIONS,
   [SYSTEM_ROLES.FINANCE_MANAGER]: [
     ...BASIC_PERMISSIONS,
+    PERMISSIONS.PROJECT_READ,
     PERMISSIONS.AUDIT_READ,
   ],
-  [SYSTEM_ROLES.MANAGER]: [
-    ...BASIC_PERMISSIONS,
-    PERMISSIONS.USER_READ,
-    PERMISSIONS.ROLE_READ,
-    PERMISSIONS.AUDIT_READ,
-  ],
+  [SYSTEM_ROLES.MANAGER]: PERMISSION_DEFINITIONS.map(({ code }) => code),
 };
 
 const DEMO_USERS = [
@@ -203,6 +211,96 @@ async function main() {
     ]);
   }
 
+  const promoter = await prisma.user.findUniqueOrThrow({
+    where: { login: "promoter" },
+  });
+  const operator = await prisma.user.findUniqueOrThrow({
+    where: { login: "operator" },
+  });
+  const measurer = await prisma.user.findUniqueOrThrow({
+    where: { login: "measurer" },
+  });
+
+  const demoLead = await prisma.lead.upsert({
+    where: { phoneNormalized: "79991112233" },
+    create: {
+      clientName: "Мария Демонстрационная",
+      phone: "+7 999 111-22-33",
+      phoneNormalized: "79991112233",
+      districtOrAddress: "Центральный район, ул. Примерная, 10",
+      housingType: "APARTMENT",
+      roomsApprox: 3,
+      repairTimeline: "В течение двух месяцев",
+      preferredCallTime: "После 18:00",
+      adPoint: "Точка ТЦ Центральный",
+      comment: "Интересуется натяжными потолками во всей квартире",
+      contactConsent: true,
+      source: "PROMOTER",
+      status: "QUALIFIED",
+      authorId: promoter.id,
+      operatorId: operator.id,
+      measurerId: measurer.id,
+      measurementAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      qualifiedAt: new Date(),
+    },
+    update: {
+      clientName: "Мария Демонстрационная",
+      authorId: promoter.id,
+      operatorId: operator.id,
+      measurerId: measurer.id,
+    },
+  });
+  await prisma.workTask.deleteMany({ where: { leadId: demoLead.id } });
+  await prisma.workTask.create({
+    data: {
+      title: "Провести демонстрационный замер",
+      type: "MEASUREMENT",
+      leadId: demoLead.id,
+      authorId: operator.id,
+      assigneeId: measurer.id,
+      dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    },
+  });
+
+  const demoCustomer = await prisma.customer.upsert({
+    where: { phoneNormalized: "79991112233" },
+    create: {
+      name: "Мария Демонстрационная",
+      phone: "+7 999 111-22-33",
+      phoneNormalized: "79991112233",
+      address: "ул. Примерная, 10",
+    },
+    update: { name: "Мария Демонстрационная" },
+  });
+  await prisma.project.upsert({
+    where: { number: "APT-DEMO-001" },
+    create: {
+      number: "APT-DEMO-001",
+      customerId: demoCustomer.id,
+      source: "PROMOTER",
+      status: "QUALIFIED",
+      address: "ул. Примерная, 10",
+      description: "Демонстрационный проект трёхкомнатной квартиры",
+      createdById: operator.id,
+      responsibles: {
+        create: { userId: operator.id, roleLabel: "Менеджер проекта" },
+      },
+      rooms: {
+        create: [
+          { name: "Гостиная", area: 21.5, sortOrder: 1 },
+          { name: "Спальня", area: 14.2, sortOrder: 2 },
+        ],
+      },
+      statusHistory: {
+        create: {
+          toStatus: "QUALIFIED",
+          changedById: operator.id,
+          comment: "Демонстрационный проект",
+        },
+      },
+    },
+    update: { customerId: demoCustomer.id, address: "ул. Примерная, 10" },
+  });
   await prisma.auditLog.create({
     data: {
       actorId: admin.id,
