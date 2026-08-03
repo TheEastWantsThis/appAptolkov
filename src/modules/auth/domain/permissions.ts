@@ -13,6 +13,14 @@ export const PERMISSIONS = {
   LEAD_MANAGE: "lead.manage",
   PROJECT_READ: "project.read",
   PROJECT_MANAGE: "project.manage",
+  MEASUREMENT_ASSIGNED_READ: "measurement.assigned.read",
+  MEASUREMENT_ASSIGNED_MANAGE: "measurement.assigned.manage",
+  ESTIMATE_READ: "estimate.read",
+  ESTIMATE_CREATE: "estimate.create",
+  ESTIMATE_CLIENT_PRICE_READ: "estimate.client-price.read",
+  ESTIMATE_CLIENT_PRICE_MANAGE: "estimate.client-price.manage",
+  ESTIMATE_INTERNAL_PRICE_READ: "estimate.internal-price.read",
+  TARIFF_MANAGE: "tariff.manage",
   CUSTOMER_PHONE_READ: "customer.phone.read",
 } as const;
 
@@ -120,5 +128,53 @@ export const PERMISSION_DEFINITIONS: ReadonlyArray<{
     "Полный телефон клиента",
     "Серверный доступ к полному номеру телефона клиента",
     "Персональные данные",
+  ),
+  definition(
+    PERMISSIONS.MEASUREMENT_ASSIGNED_READ,
+    "Назначенные замеры",
+    "Просмотр только назначенных сотруднику замеров",
+    "Замеры",
+  ),
+  definition(
+    PERMISSIONS.MEASUREMENT_ASSIGNED_MANAGE,
+    "Заполнение замеров",
+    "Черновики и технические данные назначенных замеров",
+    "Замеры",
+  ),
+  definition(
+    PERMISSIONS.ESTIMATE_READ,
+    "Просмотр смет",
+    "Просмотр технического состава смет без ценовых прав",
+    "Сметы",
+  ),
+  definition(
+    PERMISSIONS.ESTIMATE_CREATE,
+    "Создание смет",
+    "Серверный расчёт и сохранение версий смет",
+    "Сметы",
+  ),
+  definition(
+    PERMISSIONS.ESTIMATE_CLIENT_PRICE_READ,
+    "Клиентская цена",
+    "Просмотр клиентских цен и итогов",
+    "Финансы",
+  ),
+  definition(
+    PERMISSIONS.ESTIMATE_CLIENT_PRICE_MANAGE,
+    "Изменение клиентской цены",
+    "Управление скидками и клиентскими ценами",
+    "Финансы",
+  ),
+  definition(
+    PERMISSIONS.ESTIMATE_INTERNAL_PRICE_READ,
+    "Внутренняя себестоимость",
+    "Просмотр себестоимости и внутренний PDF",
+    "Финансы",
+  ),
+  definition(
+    PERMISSIONS.TARIFF_MANAGE,
+    "Управление тарифами",
+    "Изменение стоимости материалов, работ, зон и коэффициентов",
+    "Сметы",
   ),
 ];

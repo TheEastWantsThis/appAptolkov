@@ -21,6 +21,7 @@ import {
   getProject,
   listAssignableUsers,
 } from "@/modules/projects/application/queries";
+import { listMeasurers } from "@/modules/leads/application/queries";
 import { PROJECT_STATUS_LABELS } from "@/modules/projects/domain/state-machine";
 
 export default async function ProjectPage({
@@ -31,7 +32,9 @@ export default async function ProjectPage({
   const { id } = await params;
   const project = await getProject(id);
   if (!project) notFound();
-  const users = project.canManage ? await listAssignableUsers() : [];
+  const [users, measurers] = project.canManage
+    ? await Promise.all([listAssignableUsers(), listMeasurers()])
+    : [[], []];
   const events = [
     ...project.statusHistory.map((x) => ({
       id: `s-${x.id}`,
@@ -242,6 +245,7 @@ export default async function ProjectPage({
             projectId={project.id}
             status={project.status}
             users={users}
+            measurers={measurers}
           />
         </section>
       ) : null}

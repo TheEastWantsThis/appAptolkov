@@ -130,6 +130,19 @@ export async function getProject(id: string) {
         orderBy: { startsAt: "desc" },
       },
       rooms: { orderBy: { sortOrder: "asc" } },
+      measurements: {
+        orderBy: { scheduledAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          scheduledAt: true,
+          measurer: { select: { name: true } },
+        },
+      },
+      estimates: {
+        orderBy: { version: "desc" },
+        select: { id: true, version: true, status: true, createdAt: true },
+      },
     },
   });
   if (!project) return null;

@@ -296,6 +296,20 @@ export async function createProjectFromLeadAction(
           address: parsed.data.address,
           description: parsed.data.description,
           createdById: context.userId,
+          ...(lead.measurerId && lead.measurementAt
+            ? {
+                measurements: {
+                  create: {
+                    measurerId: lead.measurerId,
+                    scheduledAt: lead.measurementAt,
+                    district: lead.districtOrAddress,
+                    objectType: lead.housingType,
+                    operatorComment: lead.comment,
+                    requiredDocuments: [],
+                  },
+                },
+              }
+            : {}),
           statusHistory: {
             create: {
               toStatus: "QUALIFIED",

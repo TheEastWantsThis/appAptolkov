@@ -8,6 +8,8 @@ import {
   Home,
   Megaphone,
   Search,
+  Ruler,
+  SlidersHorizontal,
   ScrollText,
   ShieldCheck,
   UserRound,
@@ -51,6 +53,22 @@ const ITEMS: readonly NavigationItem[] = [
     icon: BriefcaseBusiness,
     permission: PERMISSIONS.PROJECT_READ,
     mobile: true,
+  },
+  {
+    href: "/measurements",
+    label: "Замеры",
+    icon: Ruler,
+    anyPermissions: [
+      PERMISSIONS.MEASUREMENT_ASSIGNED_READ,
+      PERMISSIONS.PROJECT_MANAGE,
+    ],
+    mobile: true,
+  },
+  {
+    href: "/settings/tariffs",
+    label: "Тарифы",
+    icon: SlidersHorizontal,
+    permission: PERMISSIONS.TARIFF_MANAGE,
   },
   {
     href: "/search",

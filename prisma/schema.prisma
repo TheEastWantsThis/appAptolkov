@@ -81,45 +81,82 @@ enum CalendarEventType {
   OTHER
 }
 
+enum MeasurementStatus {
+  SCHEDULED
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AreaCalculationMode {
+  AUTO
+  MANUAL
+}
+
+enum RoomMediaType {
+  PHOTO
+  DRAWING
+}
+
+enum TariffUnit {
+  M2
+  M
+  PCS
+  FIXED
+  ZONE
+  COEFFICIENT
+}
+
+enum EstimateStatus {
+  DRAFT
+  FINAL
+  CANCELLED
+}
+
 model User {
-  id                  String                     @id @default(uuid()) @db.Uuid
-  email               String                     @unique @db.VarChar(254)
-  emailVerified       DateTime?
-  login               String                     @unique @db.VarChar(64)
-  name                String                     @db.VarChar(160)
-  image               String?
-  passwordHash        String
-  isActive            Boolean                    @default(true)
-  blockedAt           DateTime?
-  blockedReason       String?                    @db.VarChar(500)
-  mustChangePassword  Boolean                    @default(false)
-  passwordChangedAt   DateTime                   @default(now())
-  lastLoginAt         DateTime?
-  sessionVersion      Int                        @default(1)
-  createdAt           DateTime                   @default(now())
-  updatedAt           DateTime                   @updatedAt
-  archivedAt          DateTime?
-  accounts            Account[]
-  sessions            Session[]
-  roles               UserRole[]                 @relation("UserRoles")
-  assignedRoles       UserRole[]                 @relation("RoleAssignedBy")
-  permissionOverrides UserPermission[]           @relation("UserPermissions")
-  assignedPermissions UserPermission[]           @relation("PermissionAssignedBy")
-  auditLogs           AuditLog[]                 @relation("AuditActor")
-  authoredLeads       Lead[]                     @relation("LeadAuthor")
-  operatedLeads       Lead[]                     @relation("LeadOperator")
-  measuredLeads       Lead[]                     @relation("LeadMeasurer")
-  callLogs            CallLog[]                  @relation("CallAuthor")
-  assignedTasks       WorkTask[]                 @relation("TaskAssignee")
-  createdTasks        WorkTask[]                 @relation("TaskAuthor")
-  createdProjects     Project[]                  @relation("ProjectCreator")
-  projectAssignments  ProjectResponsible[]
-  projectComments     ProjectComment[]
-  uploadedFiles       ProjectFile[]
-  statusChanges       ProjectStatusHistory[]
-  assignmentChanges   ProjectAssignmentHistory[] @relation("AssignmentChangedBy")
-  assignedInHistory   ProjectAssignmentHistory[] @relation("AssignmentUser")
-  calendarEvents      CalendarEvent[]            @relation("EventAssignee")
+  id                   String                     @id @default(uuid()) @db.Uuid
+  email                String                     @unique @db.VarChar(254)
+  emailVerified        DateTime?
+  login                String                     @unique @db.VarChar(64)
+  name                 String                     @db.VarChar(160)
+  image                String?
+  passwordHash         String
+  isActive             Boolean                    @default(true)
+  blockedAt            DateTime?
+  blockedReason        String?                    @db.VarChar(500)
+  mustChangePassword   Boolean                    @default(false)
+  passwordChangedAt    DateTime                   @default(now())
+  lastLoginAt          DateTime?
+  sessionVersion       Int                        @default(1)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  archivedAt           DateTime?
+  accounts             Account[]
+  sessions             Session[]
+  roles                UserRole[]                 @relation("UserRoles")
+  assignedRoles        UserRole[]                 @relation("RoleAssignedBy")
+  permissionOverrides  UserPermission[]           @relation("UserPermissions")
+  assignedPermissions  UserPermission[]           @relation("PermissionAssignedBy")
+  auditLogs            AuditLog[]                 @relation("AuditActor")
+  authoredLeads        Lead[]                     @relation("LeadAuthor")
+  operatedLeads        Lead[]                     @relation("LeadOperator")
+  measuredLeads        Lead[]                     @relation("LeadMeasurer")
+  callLogs             CallLog[]                  @relation("CallAuthor")
+  assignedTasks        WorkTask[]                 @relation("TaskAssignee")
+  createdTasks         WorkTask[]                 @relation("TaskAuthor")
+  createdProjects      Project[]                  @relation("ProjectCreator")
+  projectAssignments   ProjectResponsible[]
+  projectComments      ProjectComment[]
+  uploadedFiles        ProjectFile[]
+  statusChanges        ProjectStatusHistory[]
+  assignmentChanges    ProjectAssignmentHistory[] @relation("AssignmentChangedBy")
+  assignedInHistory    ProjectAssignmentHistory[] @relation("AssignmentUser")
+  calendarEvents       CalendarEvent[]            @relation("EventAssignee")
+  assignedMeasurements Measurement[]              @relation("MeasurementMeasurer")
+  authoredEstimates    Estimate[]                 @relation("EstimateAuthor")
+  updatedTariffs       Tariff[]                   @relation("TariffUpdatedBy")
+  uploadedRoomMedia    ProjectRoomMedia[]         @relation("RoomMediaUploader")
 
   @@index([isActive, archivedAt])
   @@map("users")
@@ -312,6 +349,8 @@ model Project {
   assignmentHistory ProjectAssignmentHistory[]
   events            CalendarEvent[]
   rooms             ProjectRoom[]
+  measurements      Measurement[]
+  estimates         Estimate[]
 
   @@index([status, updatedAt])
   @@index([customerId])
@@ -435,16 +474,153 @@ model CalendarEvent {
 }
 
 model ProjectRoom {
-  id          String   @id @default(uuid()) @db.Uuid
-  projectId   String   @db.Uuid
-  name        String   @db.VarChar(160)
-  area        Decimal? @db.Decimal(10, 2)
-  description String?  @db.VarChar(1000)
-  sortOrder   Int      @default(0)
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id                    String              @id @default(uuid()) @db.Uuid
+  projectId             String              @db.Uuid
+  measurementId         String?             @db.Uuid
+  name                  String              @db.VarChar(160)
+  areaMode              AreaCalculationMode @default(AUTO)
+  length                Decimal?            @db.Decimal(10, 2)
+  width                 Decimal?            @db.Decimal(10, 2)
+  area                  Decimal?            @db.Decimal(10, 2)
+  perimeter             Decimal?            @db.Decimal(10, 2)
+  height                Decimal?            @db.Decimal(10, 2)
+  corners               Int                 @default(4)
+  canvasType            String?             @db.VarChar(100)
+  manufacturer          String?             @db.VarChar(120)
+  color                 String?             @db.VarChar(100)
+  texture               String?             @db.VarChar(100)
+  profileType           String?             @db.VarChar(100)
+  profileLength         Decimal?            @db.Decimal(10, 2)
+  insertLength          Decimal?            @db.Decimal(10, 2)
+  pipes                 Int                 @default(0)
+  lights                Int                 @default(0)
+  chandeliers           Int                 @default(0)
+  tracks                Decimal             @default(0) @db.Decimal(10, 2)
+  cornices              Decimal             @default(0) @db.Decimal(10, 2)
+  niches                Decimal             @default(0) @db.Decimal(10, 2)
+  ventilation           Int                 @default(0)
+  sensors               Int                 @default(0)
+  cabinetBypass         Decimal             @default(0) @db.Decimal(10, 2)
+  additionalWorks       String?             @db.VarChar(2000)
+  additionalWorkUnits   Decimal             @default(0) @db.Decimal(10, 2)
+  complexityCoefficient Decimal             @default(1) @db.Decimal(6, 3)
+  comment               String?             @db.VarChar(2000)
+  description           String?             @db.VarChar(1000)
+  sortOrder             Int                 @default(0)
+  project               Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  measurement           Measurement?        @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  media                 ProjectRoomMedia[]
+  estimateLines         EstimateLine[]
 
   @@index([projectId, sortOrder])
+  @@index([measurementId])
   @@map("project_rooms")
+}
+
+model Measurement {
+  id                String            @id @default(uuid()) @db.Uuid
+  projectId         String            @db.Uuid
+  measurerId        String            @db.Uuid
+  scheduledAt       DateTime
+  district          String?           @db.VarChar(160)
+  objectType        String?           @db.VarChar(120)
+  operatorComment   String?           @db.VarChar(2000)
+  requiredDocuments String[]
+  status            MeasurementStatus @default(SCHEDULED)
+  startedAt         DateTime?
+  draftSavedAt      DateTime?
+  completedAt       DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  measurer          User              @relation("MeasurementMeasurer", fields: [measurerId], references: [id], onDelete: Restrict)
+  rooms             ProjectRoom[]
+  estimates         Estimate[]
+
+  @@index([measurerId, scheduledAt])
+  @@index([projectId, status])
+  @@map("measurements")
+}
+
+model ProjectRoomMedia {
+  id           String        @id @default(uuid()) @db.Uuid
+  roomId       String        @db.Uuid
+  uploadedById String        @db.Uuid
+  type         RoomMediaType
+  name         String        @db.VarChar(255)
+  url          String        @db.VarChar(1000)
+  createdAt    DateTime      @default(now())
+  room         ProjectRoom   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  uploadedBy   User          @relation("RoomMediaUploader", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([roomId, type])
+  @@map("project_room_media")
+}
+
+model Tariff {
+  id            String     @id @default(uuid()) @db.Uuid
+  code          String     @unique @db.VarChar(100)
+  name          String     @db.VarChar(200)
+  category      String     @db.VarChar(100)
+  unit          TariffUnit
+  internalPrice Decimal    @db.Decimal(12, 2)
+  clientPrice   Decimal    @db.Decimal(12, 2)
+  metadata      Json?
+  isActive      Boolean    @default(true)
+  updatedById   String?    @db.Uuid
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  updatedBy     User?      @relation("TariffUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([category, isActive])
+  @@map("tariffs")
+}
+
+model Estimate {
+  id               String         @id @default(uuid()) @db.Uuid
+  projectId        String         @db.Uuid
+  measurementId    String?        @db.Uuid
+  version          Int
+  status           EstimateStatus @default(DRAFT)
+  authorId         String         @db.Uuid
+  tariffSnapshot   Json
+  discountPercent  Decimal        @default(0) @db.Decimal(6, 2)
+  subtotalInternal Decimal        @db.Decimal(14, 2)
+  subtotalClient   Decimal        @db.Decimal(14, 2)
+  discountAmount   Decimal        @db.Decimal(14, 2)
+  totalInternal    Decimal        @db.Decimal(14, 2)
+  totalClient      Decimal        @db.Decimal(14, 2)
+  createdAt        DateTime       @default(now())
+  finalizedAt      DateTime?
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  measurement      Measurement?   @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  author           User           @relation("EstimateAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  lines            EstimateLine[]
+
+  @@unique([projectId, version])
+  @@index([measurementId])
+  @@map("estimates")
+}
+
+model EstimateLine {
+  id                String       @id @default(uuid()) @db.Uuid
+  estimateId        String       @db.Uuid
+  roomId            String?      @db.Uuid
+  code              String       @db.VarChar(100)
+  description       String       @db.VarChar(300)
+  quantity          Decimal      @db.Decimal(12, 3)
+  unit              TariffUnit
+  internalUnitPrice Decimal      @db.Decimal(12, 2)
+  clientUnitPrice   Decimal      @db.Decimal(12, 2)
+  internalAmount    Decimal      @db.Decimal(14, 2)
+  clientAmount      Decimal      @db.Decimal(14, 2)
+  sortOrder         Int          @default(0)
+  estimate          Estimate     @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  room              ProjectRoom? @relation(fields: [roomId], references: [id], onDelete: SetNull)
+
+  @@index([estimateId, sortOrder])
+  @@index([roomId])
+  @@map("estimate_lines")
 }
 
 model Account {

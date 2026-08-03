@@ -44,14 +44,27 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     PERMISSIONS.PROJECT_READ,
     PERMISSIONS.PROJECT_MANAGE,
     PERMISSIONS.CUSTOMER_PHONE_READ,
+    PERMISSIONS.ESTIMATE_READ,
+    PERMISSIONS.ESTIMATE_CLIENT_PRICE_READ,
+    PERMISSIONS.ESTIMATE_CLIENT_PRICE_MANAGE,
   ],
-  [SYSTEM_ROLES.MEASURER]: [...BASIC_PERMISSIONS, PERMISSIONS.PROJECT_READ],
+  [SYSTEM_ROLES.MEASURER]: [
+    ...BASIC_PERMISSIONS,
+    PERMISSIONS.PROJECT_READ,
+    PERMISSIONS.MEASUREMENT_ASSIGNED_READ,
+    PERMISSIONS.MEASUREMENT_ASSIGNED_MANAGE,
+    PERMISSIONS.ESTIMATE_READ,
+    PERMISSIONS.ESTIMATE_CREATE,
+  ],
   [SYSTEM_ROLES.INSTALLER]: [...BASIC_PERMISSIONS, PERMISSIONS.PROJECT_READ],
   [SYSTEM_ROLES.WAREHOUSE_MANAGER]: BASIC_PERMISSIONS,
   [SYSTEM_ROLES.FINANCE_MANAGER]: [
     ...BASIC_PERMISSIONS,
     PERMISSIONS.PROJECT_READ,
     PERMISSIONS.AUDIT_READ,
+    PERMISSIONS.ESTIMATE_READ,
+    PERMISSIONS.ESTIMATE_CLIENT_PRICE_READ,
+    PERMISSIONS.ESTIMATE_INTERNAL_PRICE_READ,
   ],
   [SYSTEM_ROLES.MANAGER]: PERMISSION_DEFINITIONS.map(({ code }) => code),
 };
@@ -101,6 +114,30 @@ const DEMO_USERS = [
   },
 ] as const;
 
+const TARIFFS = [
+  ["CANVAS_BASE", "Полотно базовое", "Полотно", "M2", 350, 750],
+  ["CANVAS_PREMIUM", "Полотно премиум", "Полотно", "M2", 620, 1250],
+  ["PROFILE_BASE", "Профиль базовый", "Профиль", "M", 120, 290],
+  ["PROFILE_SHADOW", "Теневой профиль", "Профиль", "M", 420, 850],
+  ["INSERT", "Декоративная вставка", "Профиль", "M", 45, 120],
+  ["CORNER", "Обработка угла", "Работы", "PCS", 45, 120],
+  ["PIPE", "Обход трубы", "Работы", "PCS", 250, 550],
+  ["LIGHT", "Монтаж светильника", "Освещение", "PCS", 300, 750],
+  ["CHANDELIER", "Монтаж люстры", "Освещение", "PCS", 550, 1400],
+  ["TRACK", "Трековая система", "Освещение", "M", 1100, 2300],
+  ["CORNICE", "Скрытый карниз", "Конструкции", "M", 650, 1450],
+  ["NICHE", "Ниша", "Конструкции", "M", 900, 1900],
+  ["VENTILATION", "Вентиляционная решётка", "Инженерия", "PCS", 350, 850],
+  ["SENSOR", "Обход датчика", "Инженерия", "PCS", 180, 450],
+  ["CABINET_BYPASS", "Обход шкафа", "Работы", "M", 400, 950],
+  ["ADDITIONAL_WORK", "Дополнительные работы", "Работы", "FIXED", 500, 1200],
+  ["TRANSPORT_ZONE_1", "Транспортная зона 1", "Транспорт", "ZONE", 500, 1200],
+  ["TRANSPORT_ZONE_2", "Транспортная зона 2", "Транспорт", "ZONE", 1200, 2600],
+  ["COMPLEXITY_1_2", "Сложность 1.2", "Коэффициенты", "COEFFICIENT", 1.2, 1.2],
+  ["COMPLEXITY_1_5", "Сложность 1.5", "Коэффициенты", "COEFFICIENT", 1.5, 1.5],
+  ["COMPLEXITY_2", "Сложность 2.0", "Коэффициенты", "COEFFICIENT", 2, 2],
+  ["MINIMUM", "Минимальная стоимость заказа", "Минимум", "FIXED", 0, 15000],
+] as const;
 async function main() {
   const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "Admin123!";
   const demoPassword = process.env.SEED_DEMO_PASSWORD ?? "Demo123!";
@@ -121,6 +158,20 @@ async function main() {
     });
   }
 
+  for (const [
+    code,
+    name,
+    category,
+    unit,
+    internalPrice,
+    clientPrice,
+  ] of TARIFFS) {
+    await prisma.tariff.upsert({
+      where: { code },
+      create: { code, name, category, unit, internalPrice, clientPrice },
+      update: { name, category, unit, isActive: true },
+    });
+  }
   for (const definition of ROLE_DEFINITIONS) {
     await prisma.role.upsert({
       where: { code: definition.code },
@@ -272,7 +323,7 @@ async function main() {
     },
     update: { name: "Мария Демонстрационная" },
   });
-  await prisma.project.upsert({
+  const demoProject = await prisma.project.upsert({
     where: { number: "APT-DEMO-001" },
     create: {
       number: "APT-DEMO-001",
@@ -300,6 +351,37 @@ async function main() {
       },
     },
     update: { customerId: demoCustomer.id, address: "ул. Примерная, 10" },
+  });
+
+  const existingMeasurement = await prisma.measurement.findFirst({
+    where: { projectId: demoProject.id, measurerId: measurer.id },
+  });
+  const demoMeasurement = existingMeasurement
+    ? await prisma.measurement.update({
+        where: { id: existingMeasurement.id },
+        data: {
+          scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          district: "Центральный",
+          objectType: "Квартира",
+          operatorComment: "Уточнить расположение треков и скрытого карниза",
+          requiredDocuments: ["План квартиры", "Фото помещения"],
+          status: "SCHEDULED",
+        },
+      })
+    : await prisma.measurement.create({
+        data: {
+          projectId: demoProject.id,
+          measurerId: measurer.id,
+          scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          district: "Центральный",
+          objectType: "Квартира",
+          operatorComment: "Уточнить расположение треков и скрытого карниза",
+          requiredDocuments: ["План квартиры", "Фото помещения"],
+        },
+      });
+  await prisma.projectRoom.updateMany({
+    where: { projectId: demoProject.id, measurementId: null },
+    data: { measurementId: demoMeasurement.id },
   });
   await prisma.auditLog.create({
     data: {

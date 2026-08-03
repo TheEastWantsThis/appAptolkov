@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { scheduleProjectMeasurementAction } from "@/modules/measurements/application/actions";
 import {
   addProjectCommentAction,
   addProjectEventAction,
@@ -27,10 +28,12 @@ export function ProjectControls({
   projectId,
   status,
   users,
+  measurers,
 }: {
   projectId: string;
   status: keyof typeof PROJECT_STATUS_LABELS;
   users: readonly UserOption[];
+  measurers: readonly UserOption[];
 }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -258,6 +261,47 @@ export function ProjectControls({
         </p>
         <Button disabled={pending} variant="secondary" className="w-full">
           Прикрепить
+        </Button>
+      </form>{" "}
+      <form
+        className="space-y-3 rounded-2xl border p-4"
+        action={(d) =>
+          void run(() =>
+            scheduleProjectMeasurementAction({
+              projectId,
+              measurerId: d.get("measurerId"),
+              scheduledAt: d.get("scheduledAt"),
+              district: d.get("district"),
+              objectType: d.get("objectType"),
+              operatorComment: d.get("operatorComment"),
+              requiredDocuments: String(d.get("requiredDocuments") ?? "")
+                .split(",")
+                .map((v) => v.trim())
+                .filter(Boolean),
+            }),
+          )
+        }
+      >
+        <h3 className="font-bold">Назначить замер</h3>
+        <select
+          name="measurerId"
+          className="border-input h-10 w-full rounded-md border px-3"
+          required
+        >
+          <option value="">Выберите замерщика</option>
+          {measurers.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.name}
+            </option>
+          ))}
+        </select>
+        <Input name="scheduledAt" type="datetime-local" required />
+        <Input name="district" placeholder="Район" />
+        <Input name="objectType" placeholder="Тип объекта" />
+        <Input name="requiredDocuments" placeholder="Документы через запятую" />
+        <Input name="operatorComment" placeholder="Комментарий замерщику" />
+        <Button disabled={pending} variant="secondary" className="w-full">
+          Назначить замер
         </Button>
       </form>{" "}
     </div>
