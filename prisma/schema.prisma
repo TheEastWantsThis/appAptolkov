@@ -131,6 +131,34 @@ enum InstallationMediaType {
   AFTER
 }
 
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  INSTALLMENTS
+  OTHER
+}
+
+enum NotificationType {
+  NEW_LEAD
+  OVERDUE_CALL
+  MEASUREMENT_TOMORROW
+  INSTALLATION_TOMORROW
+  ASSIGNMENT
+  STATUS_CHANGED
+  MATERIAL_SHORTAGE
+  PAYMENT_OVERDUE
+  REPEAT_VISIT
+}
+
+enum InventoryMovementType {
+  RECEIPT
+  CONSUMPTION
+  RESERVATION
+  RELEASE
+  ADJUSTMENT
+}
+
 model User {
   id                        String                     @id @default(uuid()) @db.Uuid
   email                     String                     @unique @db.VarChar(254)
@@ -176,6 +204,9 @@ model User {
   uploadedRoomMedia         ProjectRoomMedia[]         @relation("RoomMediaUploader")
   installationAssignments   InstallationParticipant[]
   uploadedInstallationMedia InstallationMedia[]        @relation("InstallationMediaUploader")
+  financeUpdates            ProjectFinance[]           @relation("FinanceUpdatedBy")
+  notifications             Notification[]
+  stockMovements            StockMovement[]            @relation("StockMovementActor")
 
   @@index([isActive, archivedAt])
   @@map("users")
@@ -313,6 +344,7 @@ model Lead {
   @@index([status, createdAt])
   @@index([authorId, createdAt])
   @@index([operatorId, status])
+  @@index([source, createdAt])
   @@map("leads")
 }
 
@@ -371,9 +403,11 @@ model Project {
   measurements      Measurement[]
   estimates         Estimate[]
   installations     Installation[]
+  finance           ProjectFinance?
 
   @@index([status, updatedAt])
   @@index([customerId])
+  @@index([source, createdAt])
   @@map("projects")
 }
 
@@ -456,6 +490,7 @@ model ProjectStatusHistory {
   changedBy   User           @relation(fields: [changedById], references: [id], onDelete: Restrict)
 
   @@index([projectId, changedAt(sort: Desc)])
+  @@index([toStatus, changedAt])
   @@map("project_status_history")
 }
 
@@ -492,6 +527,7 @@ model CalendarEvent {
 
   @@index([projectId, startsAt])
   @@index([assigneeId, startsAt])
+  @@index([startsAt, endsAt])
   @@map("calendar_events")
 }
 
@@ -719,6 +755,88 @@ model InstallationMaterialUsage {
 
   @@index([installationId])
   @@map("installation_material_usage")
+}
+
+model ProjectFinance {
+  id                 String        @id @default(uuid()) @db.Uuid
+  projectId          String        @unique @db.Uuid
+  contractAmount     Decimal       @default(0) @db.Decimal(14, 2)
+  discountAmount     Decimal       @default(0) @db.Decimal(14, 2)
+  prepayment         Decimal       @default(0) @db.Decimal(14, 2)
+  additionalPayments Decimal       @default(0) @db.Decimal(14, 2)
+  balanceDue         Decimal       @default(0) @db.Decimal(14, 2)
+  paymentMethod      PaymentMethod @default(BANK_TRANSFER)
+  materialCost       Decimal       @default(0) @db.Decimal(14, 2)
+  installerWages     Decimal       @default(0) @db.Decimal(14, 2)
+  transportCost      Decimal       @default(0) @db.Decimal(14, 2)
+  additionalExpenses Decimal       @default(0) @db.Decimal(14, 2)
+  totalCost          Decimal       @default(0) @db.Decimal(14, 2)
+  grossProfit        Decimal       @default(0) @db.Decimal(14, 2)
+  marginPercent      Decimal       @default(0) @db.Decimal(7, 2)
+  paymentDueAt       DateTime?
+  paidAt             DateTime?
+  version            Int           @default(1)
+  updatedById        String        @db.Uuid
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  project            Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  updatedBy          User          @relation("FinanceUpdatedBy", fields: [updatedById], references: [id], onDelete: Restrict)
+
+  @@index([paymentDueAt, paidAt])
+  @@map("project_finances")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String           @db.VarChar(200)
+  body      String           @db.VarChar(1000)
+  href      String?          @db.VarChar(500)
+  dedupeKey String?          @unique @db.VarChar(255)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model InventoryItem {
+  id              String          @id @default(uuid()) @db.Uuid
+  code            String          @unique @db.VarChar(100)
+  name            String          @db.VarChar(255)
+  unit            String          @db.VarChar(32)
+  quantity        Decimal         @default(0) @db.Decimal(14, 3)
+  reserved        Decimal         @default(0) @db.Decimal(14, 3)
+  minimumQuantity Decimal         @default(0) @db.Decimal(14, 3)
+  version         Int             @default(1)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  movements       StockMovement[]
+
+  @@index([isActive, name])
+  @@map("inventory_items")
+}
+
+model StockMovement {
+  id            String                @id @default(uuid()) @db.Uuid
+  itemId        String                @db.Uuid
+  actorId       String                @db.Uuid
+  type          InventoryMovementType
+  quantityDelta Decimal               @db.Decimal(14, 3)
+  reservedDelta Decimal               @default(0) @db.Decimal(14, 3)
+  quantityAfter Decimal               @db.Decimal(14, 3)
+  reservedAfter Decimal               @db.Decimal(14, 3)
+  reason        String                @db.VarChar(500)
+  createdAt     DateTime              @default(now())
+  item          InventoryItem         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  actor         User                  @relation("StockMovementActor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([itemId, createdAt(sort: Desc)])
+  @@index([actorId, createdAt(sort: Desc)])
+  @@map("stock_movements")
 }
 
 model Account {

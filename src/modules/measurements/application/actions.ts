@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/modules/audit/application/write-audit";
 import { requirePermission } from "@/modules/auth/application/auth-context";
 import { PERMISSIONS } from "@/modules/auth/domain/permissions";
+import { createNotifications } from "@/modules/notifications/application/queries";
 import { getMeasurementAccess } from "@/modules/measurements/application/queries";
 import {
   saveMeasurementSchema,
@@ -160,6 +161,20 @@ export async function scheduleProjectMeasurementAction(
       );
       return created;
     });
+    await createNotifications([
+      {
+        userId: parsed.data.measurerId,
+        type: "ASSIGNMENT",
+        title: "Назначен замер",
+        body: "Новый замер в календаре",
+        href: "/measurements/" + measurement.id,
+        dedupeKey:
+          "measurement-assignment:" +
+          measurement.id +
+          ":" +
+          parsed.data.measurerId,
+      },
+    ]);
     revalidatePath("/measurements");
     revalidatePath(`/projects/${parsed.data.projectId}`);
     return { ok: true, data: { id: measurement.id } };

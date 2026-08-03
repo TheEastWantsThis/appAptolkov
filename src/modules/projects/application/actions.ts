@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/modules/audit/application/write-audit";
 import { requirePermission } from "@/modules/auth/application/auth-context";
 import { PERMISSIONS } from "@/modules/auth/domain/permissions";
+import { createNotifications } from "@/modules/notifications/application/queries";
 import {
   assignmentSchema,
   projectCommentSchema,
@@ -39,8 +40,10 @@ export async function changeProjectStatusAction(
             rooms: true,
             responsibles: true,
             tasks: { where: { status: { in: ["OPEN", "IN_PROGRESS"] } } },
+            installations: { where: { status: { not: "COMPLETED" } } },
           },
         },
+        finance: { select: { balanceDue: true, paidAt: true } },
         events: {
           where: { type: "MEASUREMENT" },
           take: 1,
@@ -62,6 +65,10 @@ export async function changeProjectStatusAction(
         hasResponsible: project._count.responsibles > 0,
         roomCount: project._count.rooms,
         openTaskCount: project._count.tasks,
+        incompleteInstallationCount: project._count.installations,
+        hasFinancialSettlement:
+          Boolean(project.finance?.paidAt) &&
+          Number(project.finance?.balanceDue ?? 0) === 0,
       },
     );
     if (message) return { ok: false, error: { code: "CONFLICT", message } };
@@ -96,6 +103,34 @@ export async function changeProjectStatusAction(
         tx,
       );
     });
+    const statusRecipients = await prisma.projectResponsible.findMany({
+      where: { projectId: project.id },
+      select: { userId: true },
+    });
+    const recipientIds = [
+      ...new Set([
+        project.createdById,
+        ...statusRecipients.map(({ userId }) => userId),
+      ]),
+    ];
+    await createNotifications(
+      recipientIds.map((userId) => ({
+        userId,
+        type: "STATUS_CHANGED" as const,
+        title: "Изменён статус проекта",
+        body: project.number + " · " + parsed.data.status,
+        href: "/projects/" + project.id,
+        dedupeKey:
+          "project-status:" +
+          project.id +
+          ":" +
+          parsed.data.status +
+          ":" +
+          userId +
+          ":" +
+          Date.now(),
+      })),
+    );
     revalidatePath("/projects");
     revalidatePath(`/projects/${project.id}`);
     return { ok: true, data: { id: project.id } };
@@ -260,6 +295,22 @@ export async function assignProjectUserAction(
         tx,
       );
     });
+    await createNotifications([
+      {
+        userId: parsed.data.userId,
+        type: "ASSIGNMENT",
+        title: "Новое назначение",
+        body: "Вы назначены в проект: " + parsed.data.roleLabel,
+        href: "/projects/" + parsed.data.projectId,
+        dedupeKey:
+          "project-assignment:" +
+          parsed.data.projectId +
+          ":" +
+          parsed.data.userId +
+          ":" +
+          parsed.data.roleLabel,
+      },
+    ]);
     revalidatePath(`/projects/${parsed.data.projectId}`);
     return { ok: true, data: { id: parsed.data.projectId } };
   } catch (error: unknown) {

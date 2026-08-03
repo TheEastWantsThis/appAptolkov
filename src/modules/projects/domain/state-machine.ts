@@ -49,6 +49,8 @@ export interface ProjectTransitionFacts {
   hasResponsible: boolean;
   roomCount: number;
   openTaskCount: number;
+  hasFinancialSettlement: boolean;
+  incompleteInstallationCount: number;
 }
 
 export function validateProjectTransition(
@@ -67,5 +69,9 @@ export function validateProjectTransition(
     return "Назначьте ответственного за проект";
   if (to === "COMPLETED" && facts.openTaskCount > 0)
     return "Завершите открытые задачи проекта";
+  if (to === "COMPLETED" && facts.incompleteInstallationCount > 0)
+    return "Завершите все монтажи проекта";
+  if (to === "COMPLETED" && !facts.hasFinancialSettlement)
+    return "Закройте оплату и финансовые условия проекта";
   return null;
 }

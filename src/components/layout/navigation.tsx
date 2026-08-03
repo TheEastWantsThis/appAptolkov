@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChart3,
+  Bell,
   BookOpenCheck,
+  Boxes,
   BriefcaseBusiness,
   Home,
   HardHat,
   Megaphone,
+  Menu,
   Search,
   Ruler,
   SlidersHorizontal,
@@ -31,6 +35,7 @@ interface NavigationItem {
   permission?: PermissionCode;
   anyPermissions?: readonly PermissionCode[];
   mobile?: boolean;
+  mobileOnly?: boolean;
 }
 
 const ITEMS: readonly NavigationItem[] = [
@@ -39,6 +44,16 @@ const ITEMS: readonly NavigationItem[] = [
     label: "Главная",
     icon: Home,
     permission: PERMISSIONS.DASHBOARD_READ,
+    mobile: true,
+  },
+  {
+    href: "/analytics",
+    label: "Аналитика",
+    icon: BarChart3,
+    anyPermissions: [
+      PERMISSIONS.ANALYTICS_READ,
+      PERMISSIONS.ANALYTICS_SELF_READ,
+    ],
     mobile: true,
   },
   {
@@ -54,6 +69,14 @@ const ITEMS: readonly NavigationItem[] = [
     icon: BriefcaseBusiness,
     permission: PERMISSIONS.PROJECT_READ,
     mobile: true,
+  },
+  {
+    href: "/menu",
+    label: "Ещё",
+    icon: Menu,
+    permission: PERMISSIONS.DASHBOARD_READ,
+    mobile: true,
+    mobileOnly: true,
   },
   {
     href: "/installations",
@@ -74,6 +97,18 @@ const ITEMS: readonly NavigationItem[] = [
       PERMISSIONS.PROJECT_MANAGE,
     ],
     mobile: true,
+  },
+  {
+    href: "/notifications",
+    label: "Уведомления",
+    icon: Bell,
+    permission: PERMISSIONS.NOTIFICATION_READ,
+  },
+  {
+    href: "/inventory",
+    label: "Склад",
+    icon: Boxes,
+    permission: PERMISSIONS.INVENTORY_READ,
   },
   {
     href: "/settings/tariffs",
@@ -136,6 +171,7 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const visible = ITEMS.filter(
     (item) =>
+      !item.mobileOnly &&
       (!item.permission || permissions.includes(item.permission)) &&
       (!item.anyPermissions ||
         item.anyPermissions.some((permission) =>

@@ -1,133 +1,184 @@
-# Aпотолков CRM/ERP — рабочий каркас
+# Апотолков CRM/ERP
 
-Адаптивный каркас внутренней CRM/ERP на Next.js App Router. Реализованы авторизация, серверный RBAC, лиды, операторская очередь, клиентские проекты, задачи, история статусов, календарные события, профиль и AuditLog.
+Мобильная CRM/ERP на Next.js для работы с лидами, проектами, замерами, сметами, монтажами, финансами, складом и управленческой аналитикой.
 
 ## Стек
 
-- Next.js 16, React 19, TypeScript strict;
-- Tailwind CSS 4 и локальные компоненты shadcn/ui;
-- PostgreSQL 17, Prisma 7 и драйвер `pg`;
-- Auth.js 5 Credentials provider;
-- Argon2id (`@node-rs/argon2`), Zod, React Hook Form;
-- Vitest для тестов прав доступа.
+- Next.js 16, React 19, TypeScript strict, Tailwind CSS 4;
+- PostgreSQL 17, Prisma 7;
+- Auth.js Credentials, Argon2id, серверный RBAC;
+- Zod, Vitest, PostgreSQL integration tests и Playwright;
+- PDFKit для клиентских и внутренних смет.
 
 ## Требования
 
-- Node.js 20.19+ (рекомендуется актуальный LTS);
+- Node.js 20.19 или новее;
 - npm;
-- Docker Desktop или локальная PostgreSQL 17.
+- Docker Desktop либо PostgreSQL 17;
+- для E2E: Chromium, устанавливаемый командой npx playwright install chromium.
 
-## Локальный запуск
+## Переменные окружения
+
+Скопируйте шаблон:
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up -d
-npm install
-npm run db:generate
-npm run db:migrate -- --name init
-npm run db:seed
-npm run dev
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000).
+| Переменная          | Назначение                                 |
+| ------------------- | ------------------------------------------ |
+| DATABASE_URL        | Строка подключения PostgreSQL              |
+| AUTH_SECRET         | Секрет Auth.js длиной не менее 32 символов |
+| AUTH_TRUST_HOST     | Доверять заголовку host за reverse proxy   |
+| SEED_ADMIN_PASSWORD | Пароль локального администратора при seed  |
+| SEED_DEMO_PASSWORD  | Пароль демонстрационных пользователей      |
 
-Перед первым запуском замените `AUTH_SECRET` в `.env`:
+Создание секрета:
 
 ```powershell
 npx auth secret
 ```
 
-Если PostgreSQL работает не в Docker, измените `DATABASE_URL`.
+Не коммитьте .env и не используйте демонстрационные пароли в production.
+
+## Локальный запуск
+
+```powershell
+npm install
+Copy-Item .env.example .env
+docker compose up -d
+npm run db:generate
+npm run db:deploy
+npm run db:seed
+npm run dev
+```
+
+Приложение: [http://localhost:3000](http://localhost:3000).
+
+Проверка контейнера:
+
+```powershell
+docker compose ps
+docker compose logs postgres
+```
+
+## База данных и миграции
+
+Создание миграции после изменения схемы:
+
+```powershell
+npm run db:migrate -- --name short_description
+```
+
+Применение готовых миграций без их изменения:
+
+```powershell
+npm run db:deploy
+```
+
+Другие команды:
+
+```powershell
+npm run db:generate
+npm run db:studio
+npm run db:seed
+```
+
+Seed идемпотентно создаёт permissions, роли, пользователей, тарифы, демонстрационный проект, замер, монтаж, финансы и складские материалы.
+
+## Тестовые пользователи
+
+| Роль              | Логин     | Email                   | Пароль по умолчанию |
+| ----------------- | --------- | ----------------------- | ------------------- |
+| ADMIN             | admin     | admin@example.local     | Admin123!           |
+| PROMOTER          | promoter  | promoter@example.local  | Demo123!            |
+| AD_OPERATOR       | operator  | operator@example.local  | Demo123!            |
+| MEASURER          | measurer  | measurer@example.local  | Demo123!            |
+| INSTALLER         | installer | installer@example.local | Demo123!            |
+| WAREHOUSE_MANAGER | warehouse | warehouse@example.local | Demo123!            |
+| FINANCE_MANAGER   | finance   | finance@example.local   | Demo123!            |
+| MANAGER           | manager   | manager@example.local   | Demo123!            |
+
+Пароли берутся из SEED_ADMIN_PASSWORD и SEED_DEMO_PASSWORD.
 
 ## Проверки
 
 ```powershell
 npm run lint
 npm run typecheck
-npm test
+npm run test:unit
+npm run test:integration
+npm run test:e2e
 npm run build
 ```
 
-Дополнительные команды:
+npm test запускает unit-тесты. Integration-тесты используют DATABASE_URL, создают данные с уникальными идентификаторами и удаляют только собственные записи.
+
+## Модули и безопасность
+
+- Лиды: быстрый мобильный ввод, нормализация телефона, защита дублей и операторская очередь.
+- Проекты: state machine, задачи, статусы, история, файлы и календарь.
+- Замеры и сметы: локальные черновики, серверный калькулятор, snapshot тарифов и раздельные PDF.
+- Монтажи: бригады, пересечения календаря, ход работ и повторные выезды.
+- Финансы: договор, скидка, платежи, себестоимость, прибыль и маржинальность. Все изменения записываются в AuditLog.
+- Склад: остатки, резервы, движения, дефицит и optimistic concurrency через version.
+- Аналитика: период, источник, сотрудник и статус; воронка, финансы, эффективность, материалы и загрузка.
+- Уведомления: лиды, просрочки, завтрашние выезды, назначения, статусы, дефицит и повторные выезды.
+
+Все проверки доступа выполняются сервером. UI скрывает недоступные элементы только для удобства. Кабинеты замерщика и монтажника используют отдельные DTO, в которые не выбираются телефон и финансовые поля. Промоутерская аналитика принудительно ограничена собственным authorId и не загружает финансы.
+
+Проект нельзя закрыть, пока остаются открытые задачи, незавершённые монтажи или непогашенные финансовые условия.
+
+## Хранилище файлов
+
+В MVP приложение хранит только HTTPS-ссылки и метаданные файлов; бинарные данные не проксируются через Next.js. Ссылки с javascript:, file: и другими протоколами отклоняются Zod.
+
+Для production:
+
+1. Создайте закрытый bucket в S3-совместимом хранилище.
+2. Запретите публичный листинг и постоянные публичные URL.
+3. Выдавайте короткоживущие signed upload/download URL серверным endpoint с RBAC.
+4. Ограничьте MIME-типы, размер, количество файлов и расширения.
+5. Проверяйте magic bytes и запускайте антивирусную проверку.
+6. Сохраняйте в БД непрогнозируемый object key, размер, MIME, автора и checksum.
+7. Включите lifecycle, versioning, шифрование и журнал доступа.
+8. Не передавайте секреты bucket в браузер.
+
+До подключения такого адаптера формы принимают только готовые HTTPS-ссылки доверенного хранилища.
+
+## Резервное копирование
 
 ```powershell
-npm run db:studio
+docker compose exec postgres pg_dump -U apotolkov -d apotolkov -Fc -f /tmp/apotolkov.dump
+docker cp apotolkov-postgres:/tmp/apotolkov.dump .\apotolkov.dump
+```
+
+Храните резервные копии зашифрованно вне сервера приложения и регулярно проверяйте восстановление.
+
+## Восстановление базы
+
+Восстановление перезаписывает данные. Сначала остановите приложение и создайте свежую резервную копию.
+
+```powershell
+docker cp .\apotolkov.dump apotolkov-postgres:/tmp/apotolkov.dump
+docker compose exec postgres pg_restore -U apotolkov -d apotolkov --clean --if-exists /tmp/apotolkov.dump
 npm run db:deploy
-npm run format:check
 ```
 
-## Тестовые учётные записи
+После восстановления выполните smoke-тест входа, RBAC и ключевых карточек.
 
-Seed использует пароли из `SEED_ADMIN_PASSWORD` и `SEED_DEMO_PASSWORD`. Значения `.env.example` предназначены только для локальной разработки.
+## Деплой
 
-| Роль              | Логин       | Email                     | Пароль по умолчанию |
-| ----------------- | ----------- | ------------------------- | ------------------- |
-| ADMIN             | `admin`     | `admin@example.local`     | `Admin123!`         |
-| PROMOTER          | `promoter`  | `promoter@example.local`  | `Demo123!`          |
-| AD_OPERATOR       | `operator`  | `operator@example.local`  | `Demo123!`          |
-| MEASURER          | `measurer`  | `measurer@example.local`  | `Demo123!`          |
-| INSTALLER         | `installer` | `installer@example.local` | `Demo123!`          |
-| WAREHOUSE_MANAGER | `warehouse` | `warehouse@example.local` | `Demo123!`          |
-| FINANCE_MANAGER   | `finance`   | `finance@example.local`   | `Demo123!`          |
-| MANAGER           | `manager`   | `manager@example.local`   | `Demo123!`          |
+1. Создайте отдельную PostgreSQL и production-секреты.
+2. Соберите immutable image или установите зависимости через npm ci.
+3. Выполните npm run db:deploy отдельным release-job.
+4. Выполните npm run build, затем npm start.
+5. Настройте HTTPS, reverse proxy, централизованные логи и мониторинг.
+6. Настройте ежедневные backup, retention и тестовое восстановление.
+7. Не запускайте демонстрационный seed в production.
 
-Не используйте демонстрационные пароли в production.
+## Документация
 
-## Лиды и проекты
-
-- Промоутер создаёт заявку по кнопке «Новая заявка» и видит только свои лиды с маскированным телефоном.
-- Оператор обрабатывает очередь, фиксирует звонки, следующие контакты, причины отказа, задачи и замеры.
-- Полный телефон возвращается сервером только при разрешении customer.phone.read.
-- После квалификации лид конвертируется в проект с внутренним номером.
-- Проекты доступны в канбане и таблице; карточка содержит клиента, помещения, задачи, ответственных, события, файлы и единую ленту.
-- Переходы статусов проверяются state machine и сохраняются в ProjectStatusHistory.
-- Файлы на этом этапе прикрепляются защищёнными ссылками; бинарное хранилище подключается отдельно для выбранной production-инфраструктуры.
-
-## RBAC и безопасность
-
-- Навигация скрывает недоступные разделы, но это только UX. Страницы, queries и Server Actions независимо вызывают серверную проверку permissions.
-- Permissions нескольких ролей объединяются. Действующий пользовательский `DENY` имеет приоритет над ролевым или пользовательским `ALLOW`.
-- Блокировка, смена ролей и смена/сброс пароля увеличивают `sessionVersion`; старый JWT перестаёт проходить серверную проверку состояния пользователя.
-- Credentials provider Auth.js использует JWT-сессию, поскольку Credentials не создаёт database session. JWT не считается источником permissions: на каждом защищённом серверном запросе пользователь, роли, блокировка и overrides заново читаются из PostgreSQL.
-- Пароли хэшируются Argon2id. Пароли и их хэши не попадают в AuditLog.
-- ADMIN role защищена от удаления базовых permissions через UI, а последнего активного администратора нельзя заблокировать или лишить ADMIN.
-- Все формы валидируются Zod на клиенте для UX и повторно на сервере перед изменением БД.
-
-## Структура
-
-```text
-src/app/                 маршруты App Router и защищённый layout
-src/components/          layout, формы и локальные shadcn/ui-компоненты
-src/modules/auth/        Auth.js, RBAC, password policy и page guards
-src/modules/users/       queries и Server Actions пользователей
-src/modules/roles/       роли, каталог permissions и управление ими
-src/modules/profile/     профиль и смена пароля
-src/modules/audit/       запись и чтение AuditLog
-src/shared/              безопасный формат результатов Server Actions
-prisma/                  схема, миграции и seed
-tests/                   unit-тесты RBAC
-docs/                    согласованное архитектурное ТЗ
-```
-
-## Замеры и сметы
-
-- /measurements — календарь назначенных выездов. Замерщик видит только свои замеры без телефона и финансов.
-- Форма замера поддерживает несколько помещений, автоматическую/ручную геометрию, дублирование, сортировку, фотографии и чертёж по ссылкам.
-- Несохранённые изменения защищены предупреждением, а локальный черновик в localStorage позволяет продолжить работу при нестабильной сети.
-- /settings/tariffs — управление тарифами для пользователей с разрешением tariff.manage.
-- Калькулятор выполняется только на сервере; каждая версия сметы сохраняет snapshot тарифов и рассчитанные строки.
-- Клиентские цены, управление скидкой и внутренняя себестоимость защищены отдельными permissions.
-- Клиентский PDF физически не содержит внутренних цен; внутренний PDF доступен только с estimate.internal-price.read.
-
-## Монтажи
-
-- /installations — календарь монтажей и безопасный кабинет назначенного монтажника.
-- Назначение поддерживает несколько монтажников, отдельного бригадира, транспорт, материалы, инструменты и техническое задание.
-- Сервер предупреждает о пересечении интервалов у каждого участника бригады и требует явного подтверждения конфликта.
-- Карточка монтажника намеренно не выбирает из базы телефон, рекламный источник, сметы, прибыль и управленческие комментарии.
-- Ход работ включает статусы, фактическое время, фотографии до/в процессе/после, материалы, проблемы, подпись и приёмку.
-- Повторный выезд создаётся отдельным связанным монтажом. Завершение монтажа не закрывает проект автоматически.
-
-## Production
-
-Для production используйте отдельные секреты и БД, выполните `npm run db:deploy`, затем `npm run build` и `npm start`. Настройте HTTPS, резервное копирование PostgreSQL и централизованный сбор логов. Значения seed-паролей и локальный Docker Compose не являются production-конфигурацией.
+- docs/ARCHITECTURE.md — архитектура;
+- docs/ACCESS-WORKFLOWS.md — сценарии доступа;
+- docs/SECURITY-AUDIT.md — финальный аудит MVP.

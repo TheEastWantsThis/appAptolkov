@@ -10,6 +10,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    exclude: ["tests/integration/**/*.test.ts"],
     coverage: {
       reporter: ["text", "html"],
     },

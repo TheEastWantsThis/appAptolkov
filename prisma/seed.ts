@@ -27,6 +27,7 @@ const BASIC_PERMISSIONS: PermissionCode[] = [
   PERMISSIONS.DASHBOARD_READ,
   PERMISSIONS.PROFILE_READ,
   PERMISSIONS.PROFILE_UPDATE,
+  PERMISSIONS.NOTIFICATION_READ,
 ];
 
 const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
@@ -35,6 +36,7 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     ...BASIC_PERMISSIONS,
     PERMISSIONS.LEAD_CREATE,
     PERMISSIONS.LEAD_OWN_READ,
+    PERMISSIONS.ANALYTICS_SELF_READ,
   ],
   [SYSTEM_ROLES.AD_OPERATOR]: [
     ...BASIC_PERMISSIONS,
@@ -62,7 +64,11 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     PERMISSIONS.INSTALLATION_ASSIGNED_READ,
     PERMISSIONS.INSTALLATION_ASSIGNED_MANAGE,
   ],
-  [SYSTEM_ROLES.WAREHOUSE_MANAGER]: BASIC_PERMISSIONS,
+  [SYSTEM_ROLES.WAREHOUSE_MANAGER]: [
+    ...BASIC_PERMISSIONS,
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.INVENTORY_MANAGE,
+  ],
   [SYSTEM_ROLES.FINANCE_MANAGER]: [
     ...BASIC_PERMISSIONS,
     PERMISSIONS.PROJECT_READ,
@@ -70,6 +76,9 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     PERMISSIONS.ESTIMATE_READ,
     PERMISSIONS.ESTIMATE_CLIENT_PRICE_READ,
     PERMISSIONS.ESTIMATE_INTERNAL_PRICE_READ,
+    PERMISSIONS.FINANCE_READ,
+    PERMISSIONS.FINANCE_MANAGE,
+    PERMISSIONS.ANALYTICS_READ,
   ],
   [SYSTEM_ROLES.MANAGER]: PERMISSION_DEFINITIONS.map(({ code }) => code),
 };
@@ -432,6 +441,40 @@ async function main() {
         entityId: installation.id,
         summary: "Создан демонстрационный монтаж",
       },
+    });
+  }
+  await prisma.projectFinance.upsert({
+    where: { projectId: demoProject.id },
+    create: {
+      projectId: demoProject.id,
+      contractAmount: 120000,
+      discountAmount: 5000,
+      prepayment: 50000,
+      additionalPayments: 20000,
+      balanceDue: 45000,
+      paymentMethod: "BANK_TRANSFER",
+      materialCost: 35000,
+      installerWages: 18000,
+      transportCost: 5000,
+      additionalExpenses: 3000,
+      totalCost: 61000,
+      grossProfit: 54000,
+      marginPercent: 46.96,
+      paymentDueAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      updatedById: admin.id,
+    },
+    update: { updatedById: admin.id },
+  });
+  const inventorySeeds = [
+    ["CANVAS_WHITE", "Полотно белое", "м²", 250, 80],
+    ["PROFILE_BASE", "Профиль базовый", "м", 180, 60],
+    ["FASTENERS", "Крепёж", "компл.", 4, 10],
+  ] as const;
+  for (const [code, name, unit, quantity, minimumQuantity] of inventorySeeds) {
+    await prisma.inventoryItem.upsert({
+      where: { code },
+      create: { code, name, unit, quantity, minimumQuantity },
+      update: { name, unit, minimumQuantity, isActive: true },
     });
   }
   await prisma.auditLog.create({

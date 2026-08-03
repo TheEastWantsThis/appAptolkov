@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { httpsUrlSchema } from "@/shared/validation/https-url";
+
 const n = z.coerce.number().finite().min(0).max(100000);
 const integer = z.coerce.number().int().min(0).max(10000);
 const optionalText = (max: number) =>
@@ -40,7 +42,7 @@ export const measurementRoomSchema = z.object({
   additionalWorkUnits: n,
   complexityCoefficient: z.coerce.number().finite().min(1).max(5),
   comment: optionalText(2000),
-  photos: z.array(z.string().url()).max(20),
+  photos: z.array(httpsUrlSchema).max(20),
   drawing: z
     .string()
     .url()

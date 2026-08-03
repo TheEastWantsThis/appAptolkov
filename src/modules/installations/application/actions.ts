@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/modules/audit/application/write-audit";
 import { requirePermission } from "@/modules/auth/application/auth-context";
 import { PERMISSIONS } from "@/modules/auth/domain/permissions";
+import { createNotifications } from "@/modules/notifications/application/queries";
 import { getInstallationAccess } from "@/modules/installations/application/queries";
 import {
   repeatInstallationSchema,
@@ -152,6 +153,16 @@ export async function scheduleInstallationAction(
       );
       return created;
     });
+    await createNotifications(
+      installerIds.map((userId) => ({
+        userId,
+        type: "ASSIGNMENT" as const,
+        title: "Назначен монтаж",
+        body: "Новая работа в календаре",
+        href: "/installations/" + installation.id,
+        dedupeKey: "installation-assignment:" + installation.id + ":" + userId,
+      })),
+    );
     revalidatePath("/installations");
     revalidatePath("/projects/" + data.projectId);
     return { ok: true, data: { id: installation.id } };
@@ -393,6 +404,16 @@ export async function createRepeatInstallationAction(
       );
       return created;
     });
+    await createNotifications(
+      userIds.map((userId) => ({
+        userId,
+        type: "REPEAT_VISIT" as const,
+        title: "Требуется повторный выезд",
+        body: "Создан повторный монтаж",
+        href: "/installations/" + repeat.id,
+        dedupeKey: "repeat-visit:" + repeat.id + ":" + userId,
+      })),
+    );
     revalidatePath("/installations");
     revalidatePath("/installations/" + source.id);
     revalidatePath("/projects/" + source.projectId);

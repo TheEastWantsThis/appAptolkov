@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { httpsUrlSchema } from "@/shared/validation/https-url";
+
 import { INSTALLATION_STATUSES } from "@/modules/installations/domain/state-machine";
 
 const optionalText = (max: number) =>
@@ -8,9 +10,7 @@ const optionalText = (max: number) =>
     z.string().trim().max(max).optional(),
   );
 const dateValue = z.coerce.date();
-const urlList = z
-  .array(z.string().trim().url("Укажите корректную ссылку"))
-  .max(40);
+const urlList = z.array(httpsUrlSchema).max(40);
 
 export const scheduleInstallationSchema = z
   .object({

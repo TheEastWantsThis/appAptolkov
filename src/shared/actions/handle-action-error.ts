@@ -25,7 +25,8 @@ export function handleActionError(error: unknown): ActionResult<never> {
       ok: false,
       error: {
         code: "CONFLICT",
-        message: "Пользователь с таким email или логином уже существует",
+        message:
+          "Запись с такими уникальными данными уже существует или была изменена другим пользователем",
       },
     };
   }

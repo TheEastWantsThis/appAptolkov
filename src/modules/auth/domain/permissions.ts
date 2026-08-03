@@ -24,6 +24,13 @@ export const PERMISSIONS = {
   INSTALLATION_SCHEDULE: "installation.schedule",
   INSTALLATION_ASSIGNED_READ: "installation.assigned.read",
   INSTALLATION_ASSIGNED_MANAGE: "installation.assigned.manage",
+  FINANCE_READ: "finance.read",
+  FINANCE_MANAGE: "finance.manage",
+  ANALYTICS_READ: "analytics.read",
+  ANALYTICS_SELF_READ: "analytics.self.read",
+  NOTIFICATION_READ: "notification.read",
+  INVENTORY_READ: "inventory.read",
+  INVENTORY_MANAGE: "inventory.manage",
   CUSTOMER_PHONE_READ: "customer.phone.read",
 } as const;
 
@@ -197,5 +204,47 @@ export const PERMISSION_DEFINITIONS: ReadonlyArray<{
     "Ход монтажа",
     "Статусы, фотографии и фактические материалы своего монтажа",
     "Монтажи",
+  ),
+  definition(
+    PERMISSIONS.FINANCE_READ,
+    "Просмотр финансов",
+    "Просмотр финансовых показателей проектов",
+    "Финансы",
+  ),
+  definition(
+    PERMISSIONS.FINANCE_MANAGE,
+    "Управление финансами",
+    "Изменение договора, платежей и себестоимости",
+    "Финансы",
+  ),
+  definition(
+    PERMISSIONS.ANALYTICS_READ,
+    "Управленческая аналитика",
+    "Просмотр общих операционных и финансовых показателей",
+    "Аналитика",
+  ),
+  definition(
+    PERMISSIONS.ANALYTICS_SELF_READ,
+    "Личная аналитика",
+    "Просмотр только собственных безопасных показателей",
+    "Аналитика",
+  ),
+  definition(
+    PERMISSIONS.NOTIFICATION_READ,
+    "Уведомления",
+    "Просмотр и отметка собственных внутренних уведомлений",
+    "Уведомления",
+  ),
+  definition(
+    PERMISSIONS.INVENTORY_READ,
+    "Просмотр склада",
+    "Остатки, резервы, дефицит и движения материалов",
+    "Склад",
+  ),
+  definition(
+    PERMISSIONS.INVENTORY_MANAGE,
+    "Управление складом",
+    "Атомарное изменение складских остатков и резервов",
+    "Склад",
   ),
 ];

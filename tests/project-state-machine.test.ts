@@ -11,6 +11,8 @@ const facts = {
   hasResponsible: true,
   roomCount: 1,
   openTaskCount: 0,
+  hasFinancialSettlement: true,
+  incompleteInstallationCount: 0,
 };
 
 describe("state machine проекта", () => {
@@ -48,5 +50,21 @@ describe("state machine проекта", () => {
     expect(
       validateProjectTransition("IN_PROGRESS", "COMPLETED", facts),
     ).toBeNull();
+  });
+  it("не завершает проект с незакрытыми финансами", () => {
+    expect(
+      validateProjectTransition("IN_PROGRESS", "COMPLETED", {
+        ...facts,
+        hasFinancialSettlement: false,
+      }),
+    ).toBe("Закройте оплату и финансовые условия проекта");
+  });
+  it("не завершает проект с незавершённым монтажом", () => {
+    expect(
+      validateProjectTransition("IN_PROGRESS", "COMPLETED", {
+        ...facts,
+        incompleteInstallationCount: 1,
+      }),
+    ).toBe("Завершите все монтажи проекта");
   });
 });

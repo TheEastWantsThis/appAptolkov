@@ -157,6 +157,10 @@ export async function getProject(id: string) {
     customer: { ...safeCustomer, phone: presentPhone(phone, canReadPhone) },
     canReadPhone,
     canManage: hasPermission(context.permissions, PERMISSIONS.PROJECT_MANAGE),
+    canReadFinance: hasPermission(
+      context.permissions,
+      PERMISSIONS.FINANCE_READ,
+    ),
     canScheduleInstallation: hasPermission(
       context.permissions,
       PERMISSIONS.INSTALLATION_SCHEDULE,

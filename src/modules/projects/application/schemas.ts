@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { httpsUrlSchema } from "@/shared/validation/https-url";
+
 export const projectStatusSchema = z.object({
   projectId: z.string().uuid(),
   status: z.enum([
@@ -56,7 +58,10 @@ export const assignmentSchema = z.object({
 export const projectFileSchema = z.object({
   projectId: z.string().uuid(),
   name: z.string().trim().min(1).max(255),
-  storageKey: z.string().trim().url("Укажите корректную ссылку").max(500),
+  storageKey: httpsUrlSchema.refine(
+    (value) => value.length <= 500,
+    "Ссылка слишком длинная",
+  ),
   mimeType: z.string().trim().max(120).default("application/octet-stream"),
 });
 

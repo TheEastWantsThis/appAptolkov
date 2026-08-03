@@ -16,6 +16,7 @@ import {
   leadTaskSchema,
 } from "@/modules/leads/application/schemas";
 import { normalizePhone } from "@/modules/leads/domain/phone";
+import { createNotifications } from "@/modules/notifications/application/queries";
 import type { ActionResult } from "@/shared/actions/action-result";
 import { validationActionError } from "@/shared/actions/action-result";
 import { handleActionError } from "@/shared/actions/handle-action-error";
@@ -108,6 +109,18 @@ export async function createLeadAction(
       );
       return created;
     });
+    if (operatorId) {
+      await createNotifications([
+        {
+          userId: operatorId,
+          type: "NEW_LEAD",
+          title: "Новый лид",
+          body: "Назначена новая заявка",
+          href: "/leads/" + lead.id,
+          dedupeKey: "new-lead:" + lead.id + ":" + operatorId,
+        },
+      ]);
+    }
     revalidatePath("/leads");
     return { ok: true, data: { id: lead.id } };
   } catch (error: unknown) {

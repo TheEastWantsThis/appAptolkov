@@ -5,6 +5,7 @@ import {
   History,
   HardHat,
   MapPin,
+  WalletCards,
   Phone,
   Users,
 } from "lucide-react";
@@ -74,6 +75,14 @@ export default async function ProjectPage({
         description={project.customer.name}
         action={
           <div className="flex flex-wrap gap-2">
+            {project.canReadFinance ? (
+              <Button asChild size="sm" variant="outline">
+                <Link href={"/finance/projects/" + project.id}>
+                  <WalletCards />
+                  Финансы
+                </Link>
+              </Button>
+            ) : null}
             {project.canScheduleInstallation ? (
               <Button asChild size="sm">
                 <Link href={"/installations/new?projectId=" + project.id}>
