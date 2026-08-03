@@ -3,8 +3,13 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
 import { prisma } from "@/lib/prisma";
+import {
+  nextLoginUnlockTime,
+  shouldLockLogin,
+} from "@/modules/auth/application/login-protection";
 import { verifyPassword } from "@/modules/auth/application/password";
 import { loginSchema } from "@/modules/auth/application/schemas";
+import { isValidNormalizedPhone, normalizePhone } from "@/shared/domain/phone";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -17,9 +22,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   providers: [
     Credentials({
-      name: "Логин и пароль",
+      name: "Телефон и пароль",
       credentials: {
-        identifier: { label: "Email или логин", type: "text" },
+        phone: { label: "Номер телефона", type: "tel" },
         password: { label: "Пароль", type: "password" },
       },
       async authorize(rawCredentials) {
@@ -28,14 +33,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const identifier = parsed.data.identifier.toLowerCase();
-        const user = await prisma.user.findFirst({
-          where: {
-            OR: [{ email: identifier }, { login: identifier }],
-          },
+        const phoneNormalized = normalizePhone(parsed.data.phone);
+        if (!isValidNormalizedPhone(phoneNormalized)) {
+          return null;
+        }
+        const user = await prisma.user.findUnique({
+          where: { phoneNormalized },
         });
 
-        if (!user || !user.isActive || user.blockedAt || user.archivedAt) {
+        if (
+          !user ||
+          !user.isActive ||
+          user.blockedAt ||
+          user.archivedAt ||
+          (user.loginLockedUntil && user.loginLockedUntil > new Date())
+        ) {
           return null;
         }
 
@@ -44,6 +56,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           parsed.data.password,
         );
         if (!passwordMatches) {
+          const failed = await prisma.user.update({
+            where: { id: user.id },
+            data: { failedLoginAttempts: { increment: 1 } },
+            select: { failedLoginAttempts: true },
+          });
+          if (shouldLockLogin(failed.failedLoginAttempts)) {
+            const loginLockedUntil = nextLoginUnlockTime();
+            await prisma.$transaction([
+              prisma.user.update({
+                where: { id: user.id },
+                data: { failedLoginAttempts: 0, loginLockedUntil },
+              }),
+              prisma.auditLog.create({
+                data: {
+                  actorId: null,
+                  action: "AUTH_LOGIN_LOCKED",
+                  entityType: "User",
+                  entityId: user.id,
+                  summary: "Вход временно заблокирован после неверных попыток",
+                  metadata: { loginLockedUntil },
+                },
+              }),
+            ]);
+          }
           return null;
         }
 
@@ -81,7 +117,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       await prisma.$transaction([
         prisma.user.update({
           where: { id: user.id },
-          data: { lastLoginAt: new Date() },
+          data: {
+            lastLoginAt: new Date(),
+            failedLoginAttempts: 0,
+            loginLockedUntil: null,
+          },
         }),
         prisma.auditLog.create({
           data: {

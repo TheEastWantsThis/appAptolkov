@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import { KeyRound, Mail, ShieldCheck, UserRound } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  ChangePasswordForm,
-  ProfileNameForm,
-} from "@/components/profile/profile-forms";
+import { ProfileNameForm } from "@/components/profile/profile-forms";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -34,13 +31,15 @@ export default async function ProfilePage() {
               <UserRound />
             </div>
             <CardTitle>{context.name}</CardTitle>
-            <CardDescription>@{context.login}</CardDescription>
+            <CardDescription>Логин: {context.login}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
-            <div className="flex items-center gap-3">
-              <Mail className="text-muted-foreground size-4" />
-              <span>{context.email}</span>
-            </div>
+            {context.email ? (
+              <div className="flex items-center gap-3">
+                <Mail className="text-muted-foreground size-4" />
+                <span>{context.email}</span>
+              </div>
+            ) : null}
             <div className="flex items-start gap-3">
               <ShieldCheck className="text-muted-foreground mt-0.5 size-4" />
               <div className="flex flex-wrap gap-1">
@@ -51,14 +50,10 @@ export default async function ProfilePage() {
                 ))}
               </div>
             </div>
-            {context.mustChangePassword ? (
-              <Badge variant="destructive">
-                <KeyRound className="mr-1 size-3" /> Используется временный
-                пароль
-              </Badge>
-            ) : (
-              <Badge variant="success">Пароль актуален</Badge>
-            )}
+            <Badge variant="success">
+              <KeyRound className="mr-1 size-3" /> Пароль назначен
+              администратором
+            </Badge>
           </CardContent>
         </Card>
         <div className="space-y-4">
@@ -75,15 +70,12 @@ export default async function ProfilePage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Смена пароля</CardTitle>
+              <CardTitle>Управление паролем</CardTitle>
               <CardDescription>
-                После изменения все действующие сессии, включая текущую, будут
-                отозваны.
+                Самостоятельная смена пароля отключена. Новый пароль назначает
+                администратор; действующий пароль никому не отображается.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ChangePasswordForm />
-            </CardContent>
           </Card>
         </div>
       </div>

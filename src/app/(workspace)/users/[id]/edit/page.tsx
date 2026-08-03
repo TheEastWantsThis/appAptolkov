@@ -29,8 +29,8 @@ export default async function EditUserPage({
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader
-        title={user.name}
-        description={`Редактирование @${user.login}. Изменение ролей отзывает текущие сессии.`}
+        title={user.login}
+        description="Изменение ФИО или ролей отзывает текущие сессии."
         action={
           <Badge
             variant={
@@ -46,8 +46,8 @@ export default async function EditUserPage({
           <EditUserForm
             user={{
               id: user.id,
-              name: user.name,
-              email: user.email,
+              phone: user.phone ?? "",
+              email: user.email ?? "",
               login: user.login,
               roleIds: user.roles.map(({ roleId }) => roleId),
             }}

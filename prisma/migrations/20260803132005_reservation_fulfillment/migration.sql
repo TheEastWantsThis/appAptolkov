@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "stock_reservations" ADD COLUMN     "consumed" DECIMAL(14,3) NOT NULL DEFAULT 0,
+ADD COLUMN     "returned" DECIMAL(14,3) NOT NULL DEFAULT 0,
+ADD COLUMN     "writtenOff" DECIMAL(14,3) NOT NULL DEFAULT 0;

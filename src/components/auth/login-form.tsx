@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, LoaderCircle, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, LockKeyhole, Phone } from "lucide-react";
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 const loginFormSchema = z.object({
-  identifier: z.string().trim().min(1, "Введите email или логин").max(254),
+  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
   password: z.string().min(1, "Введите пароль").max(128),
 });
 
@@ -28,20 +28,20 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
-    defaultValues: { identifier: "", password: "" },
+    defaultValues: { phone: "", password: "" },
   });
 
   async function onSubmit(values: LoginFormValues) {
     setServerError(null);
     const result = await signIn("credentials", {
-      identifier: values.identifier,
+      phone: values.phone,
       password: values.password,
       redirect: false,
     });
 
     if (result?.error) {
       setServerError(
-        "Неверный email, логин или пароль. Проверьте данные и повторите попытку",
+        "Неверный номер телефона или пароль. Проверьте данные и повторите попытку",
       );
       return;
     }
@@ -53,23 +53,22 @@ export function LoginForm() {
       {serverError ? <Alert>{serverError}</Alert> : null}
 
       <div className="space-y-2">
-        <Label htmlFor="identifier">Email или логин</Label>
+        <Label htmlFor="phone">Номер телефона</Label>
         <div className="relative">
-          <Mail className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
+          <Phone className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
           <Input
-            id="identifier"
-            autoComplete="username"
-            autoCapitalize="none"
+            id="phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
             className="pl-10"
-            aria-invalid={Boolean(errors.identifier)}
-            placeholder="admin или admin@example.local"
-            {...register("identifier")}
+            aria-invalid={Boolean(errors.phone)}
+            placeholder="+7 999 123-45-67"
+            {...register("phone")}
           />
         </div>
-        {errors.identifier ? (
-          <p className="text-destructive text-xs">
-            {errors.identifier.message}
-          </p>
+        {errors.phone ? (
+          <p className="text-destructive text-xs">{errors.phone.message}</p>
         ) : null}
       </div>
 

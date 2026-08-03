@@ -11,12 +11,13 @@ export const metadata: Metadata = { title: "Новый пользователь"
 
 export default async function NewUserPage() {
   await requirePagePermission(PERMISSIONS.USER_MANAGE);
+  await requirePagePermission(PERMISSIONS.USER_PASSWORD_MANAGE);
   const roles = await listAssignableRoles();
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <PageHeader
         title="Новый пользователь"
-        description="После первого входа сотрудник должен заменить временный пароль."
+        description="Укажите ФИО и обязательный номер телефона для входа. Email необязателен, пароль состоит из 6 символов."
       />
       <Card>
         <CardContent className="pt-5 sm:pt-6">

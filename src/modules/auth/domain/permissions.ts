@@ -2,6 +2,7 @@ export const PERMISSIONS = {
   DASHBOARD_READ: "dashboard.read",
   USER_READ: "user.read",
   USER_MANAGE: "user.manage",
+  USER_PASSWORD_MANAGE: "user.password.manage",
   ROLE_READ: "role.read",
   ROLE_MANAGE: "role.manage",
   AUDIT_READ: "audit.read",
@@ -31,6 +32,7 @@ export const PERMISSIONS = {
   NOTIFICATION_READ: "notification.read",
   INVENTORY_READ: "inventory.read",
   INVENTORY_MANAGE: "inventory.manage",
+  INVENTORY_NEGATIVE_ALLOW: "inventory.negative.allow",
   CUSTOMER_PHONE_READ: "customer.phone.read",
 } as const;
 
@@ -64,8 +66,14 @@ export const PERMISSION_DEFINITIONS: ReadonlyArray<{
   definition(
     PERMISSIONS.USER_MANAGE,
     "Управление пользователями",
-    "Создание, изменение, блокировка и сброс пароля",
+    "Изменение ролей и блокировка учётных записей",
     "Администрирование",
+  ),
+  definition(
+    PERMISSIONS.USER_PASSWORD_MANAGE,
+    "Управление паролями пользователей",
+    "Создание учётных записей и безопасный сброс пароля без просмотра текущего пароля",
+    "Безопасность",
   ),
   definition(
     PERMISSIONS.ROLE_READ,
@@ -94,7 +102,7 @@ export const PERMISSION_DEFINITIONS: ReadonlyArray<{
   definition(
     PERMISSIONS.PROFILE_UPDATE,
     "Изменение профиля",
-    "Изменение имени и собственного пароля",
+    "Изменение имени собственного профиля",
     "Профиль",
   ),
   definition(
@@ -245,6 +253,12 @@ export const PERMISSION_DEFINITIONS: ReadonlyArray<{
     PERMISSIONS.INVENTORY_MANAGE,
     "Управление складом",
     "Атомарное изменение складских остатков и резервов",
+    "Склад",
+  ),
+  definition(
+    PERMISSIONS.INVENTORY_NEGATIVE_ALLOW,
+    "Разрешение отрицательного остатка",
+    "Специальное административное разрешение на корректировку ниже доступного остатка",
     "Склад",
   ),
 ];

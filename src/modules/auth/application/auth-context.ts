@@ -8,7 +8,7 @@ import { hasPermission, resolvePermissions } from "@/modules/auth/domain/rbac";
 export interface AuthContext {
   userId: string;
   name: string;
-  email: string;
+  email: string | null;
   login: string;
   mustChangePassword: boolean;
   roleCodes: readonly string[];

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { calculateProjectFinance } from "@/modules/finance/domain/calculator";
 import { calculateStockBalance } from "@/modules/inventory/domain";
-import { adjustInventorySchema } from "@/modules/inventory/schemas";
+import { stockMovementSchema } from "@/modules/inventory/schemas";
 import { httpsUrlSchema } from "@/shared/validation/https-url";
 
 describe("финансы проекта", () => {
@@ -68,28 +68,32 @@ describe("складские инварианты", () => {
 });
 
 describe("семантика движений склада", () => {
-  it("требует отрицательное количество для расхода", () => {
+  const base = {
+    itemId: "11111111-1111-4111-8111-111111111111",
+    locationId: "22222222-2222-4222-8222-222222222222",
+    quantity: 5,
+    projectId: "",
+    documentRef: "Накладная 1",
+    comment: "Проверочная операция",
+    allowNegative: false,
+  };
+  it("требует направление для корректировки", () => {
     expect(
-      adjustInventorySchema.safeParse({
-        itemId: "00000000-0000-0000-0000-000000000000",
-        version: 1,
-        type: "CONSUMPTION",
-        quantityDelta: 5,
-        reservedDelta: 0,
-        reason: "Монтаж",
+      stockMovementSchema.safeParse({ ...base, type: "ADJUSTMENT" }).success,
+    ).toBe(false);
+  });
+  it("запрещает перемещение в ту же локацию", () => {
+    expect(
+      stockMovementSchema.safeParse({
+        ...base,
+        type: "TRANSFER",
+        toLocationId: base.locationId,
       }).success,
     ).toBe(false);
   });
-  it("принимает корректный расход", () => {
+  it("принимает приход с документом-основанием", () => {
     expect(
-      adjustInventorySchema.safeParse({
-        itemId: "00000000-0000-0000-0000-000000000000",
-        version: 1,
-        type: "CONSUMPTION",
-        quantityDelta: -5,
-        reservedDelta: 0,
-        reason: "Монтаж",
-      }).success,
+      stockMovementSchema.safeParse({ ...base, type: "RECEIPT" }).success,
     ).toBe(true);
   });
 });

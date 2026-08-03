@@ -15,18 +15,25 @@ import { Label } from "@/components/ui/label";
 import { clientPasswordSchema } from "@/modules/auth/domain/password-policy";
 import { createUserAction } from "@/modules/users/application/actions";
 
+const fullNameSchema = z
+  .string()
+  .trim()
+  .min(5, "Укажите фамилию и имя")
+  .max(160, "ФИО не должно превышать 160 символов")
+  .regex(
+    /^\p{L}+(?:[-']\p{L}+)*(?: \p{L}+(?:[-']\p{L}+)*){1,2}$/u,
+    "Введите фамилию, имя и при наличии отчество через пробел",
+  );
+
 const schema = z.object({
-  name: z.string().trim().min(2, "Укажите имя").max(160),
-  email: z.string().trim().email("Введите корректный email").max(254),
-  login: z
-    .string()
-    .trim()
-    .min(3, "Минимум 3 символа")
-    .max(64)
-    .regex(
-      /^[a-z0-9._-]+$/u,
-      "Только латинские буквы, цифры, точка, дефис и _",
-    ),
+  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
+  email: z
+    .union([
+      z.literal(""),
+      z.string().trim().email("Введите корректный email").max(254),
+    ])
+    .optional(),
+  login: fullNameSchema,
   password: clientPasswordSchema,
   roleIds: z.array(z.string().uuid()).min(1, "Назначьте хотя бы одну роль"),
 });
@@ -49,7 +56,7 @@ export function CreateUserForm({ roles }: { roles: readonly RoleOption[] }) {
   } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: "",
+      phone: "",
       email: "",
       login: "",
       password: "",
@@ -73,41 +80,50 @@ export function CreateUserForm({ roles }: { roles: readonly RoleOption[] }) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
       {serverError ? <Alert>{serverError}</Alert> : null}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Имя" error={errors.name?.message}>
+        <Field label="ФИО" error={errors.login?.message}>
           <Input
+            aria-label="ФИО"
             autoComplete="name"
-            aria-invalid={Boolean(errors.name)}
-            {...register("name")}
-          />
-        </Field>
-        <Field label="Email" error={errors.email?.message}>
-          <Input
-            type="email"
-            autoComplete="email"
-            aria-invalid={Boolean(errors.email)}
-            {...register("email")}
-          />
-        </Field>
-        <Field label="Логин" error={errors.login?.message}>
-          <Input
-            autoCapitalize="none"
-            autoComplete="username"
             aria-invalid={Boolean(errors.login)}
+            placeholder="Иванов Иван Иванович"
             {...register("login")}
           />
         </Field>
-        <Field label="Временный пароль" error={errors.password?.message}>
+        <Field label="Номер телефона" error={errors.phone?.message}>
           <Input
+            aria-label="Номер телефона"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            aria-invalid={Boolean(errors.phone)}
+            placeholder="+7 999 123-45-67"
+            {...register("phone")}
+          />
+        </Field>
+        <Field label="Email (необязательно)" error={errors.email?.message}>
+          <Input
+            aria-label="Email (необязательно)"
+            type="email"
+            autoComplete="email"
+            aria-invalid={Boolean(errors.email)}
+            placeholder="Можно оставить пустым"
+            {...register("email")}
+          />
+        </Field>
+        <Field label="Пароль из 6 символов" error={errors.password?.message}>
+          <Input
+            aria-label="Пароль из 6 символов"
             type="password"
             autoComplete="new-password"
+            maxLength={6}
             aria-invalid={Boolean(errors.password)}
+            placeholder="6 символов"
             {...register("password")}
           />
         </Field>
       </div>
       <RoleFields
         roles={roles}
-        registerName="roleIds"
         register={register}
         error={errors.roleIds?.message}
       />
@@ -145,12 +161,10 @@ function Field({
 function RoleFields({
   roles,
   register,
-  registerName,
   error,
 }: {
   roles: readonly RoleOption[];
   register: ReturnType<typeof useForm<Values>>["register"];
-  registerName: "roleIds";
   error?: string;
 }) {
   return (
@@ -166,7 +180,7 @@ function RoleFields({
               type="checkbox"
               value={role.id}
               className="mt-0.5 size-4 accent-[var(--primary)]"
-              {...register(registerName)}
+              {...register("roleIds")}
             />
             <span>
               <span className="block text-sm font-bold">{role.name}</span>

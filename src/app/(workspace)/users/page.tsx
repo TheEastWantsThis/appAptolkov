@@ -27,6 +27,10 @@ export default async function UsersPage() {
   const context = await requirePagePermission(PERMISSIONS.USER_READ);
   const users = await listUsers();
   const canManage = hasPermission(context.permissions, PERMISSIONS.USER_MANAGE);
+  const canManagePasswords = hasPermission(
+    context.permissions,
+    PERMISSIONS.USER_PASSWORD_MANAGE,
+  );
 
   return (
     <div className="space-y-6">
@@ -34,7 +38,7 @@ export default async function UsersPage() {
         title="Пользователи"
         description="Учётные записи, роли, блокировки и управление доступом сотрудников."
         action={
-          canManage ? (
+          canManage && canManagePasswords ? (
             <Button asChild className="w-full sm:w-auto">
               <Link href="/users/new">
                 <Plus /> Добавить пользователя
@@ -68,7 +72,8 @@ export default async function UsersPage() {
                     </Badge>
                   </div>
                   <div className="text-muted-foreground mt-1 truncate text-xs">
-                    @{user.login} · {user.email}
+                    {user.login} · {user.phone ?? "Телефон не указан"}
+                    {user.email ? ` · ${user.email}` : ""}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1">
                     {user.roles.map(({ role }) => (
@@ -83,7 +88,8 @@ export default async function UsersPage() {
                 <UserActions
                   userId={user.id}
                   active={user.isActive && !user.blockedAt}
-                  canManage={canManage}
+                  canManageUsers={canManage}
+                  canManagePasswords={canManagePasswords}
                   isCurrentUser={user.id === context.userId}
                 />
               </div>
@@ -114,7 +120,8 @@ export default async function UsersPage() {
                     <div>
                       <div className="font-bold">{user.name}</div>
                       <div className="text-muted-foreground text-xs">
-                        @{user.login} · {user.email}
+                        {user.login} · {user.phone ?? "Телефон не указан"}
+                        {user.email ? ` · ${user.email}` : ""}
                       </div>
                     </div>
                   </div>
@@ -150,7 +157,8 @@ export default async function UsersPage() {
                   <UserActions
                     userId={user.id}
                     active={user.isActive && !user.blockedAt}
-                    canManage={canManage}
+                    canManageUsers={canManage}
+                    canManagePasswords={canManagePasswords}
                     isCurrentUser={user.id === context.userId}
                   />
                 </TableCell>

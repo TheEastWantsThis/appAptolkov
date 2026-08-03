@@ -197,7 +197,7 @@ export default async function DashboardPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Email</span>
-              <span className="font-semibold">{context.email}</span>
+              <span className="font-semibold">{context.email ?? "Не указан"}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Логин</span>
@@ -205,11 +205,7 @@ export default async function DashboardPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Пароль</span>
-              <Badge
-                variant={context.mustChangePassword ? "destructive" : "success"}
-              >
-                {context.mustChangePassword ? "Нужно сменить" : "Актуален"}
-              </Badge>
+              <Badge variant="success">Назначен администратором</Badge>
             </div>
           </CardContent>
         </Card>

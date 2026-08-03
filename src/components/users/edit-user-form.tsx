@@ -16,16 +16,21 @@ import { updateUserAction } from "@/modules/users/application/actions";
 
 const schema = z.object({
   id: z.string().uuid(),
-  name: z.string().trim().min(2, "Укажите имя").max(160),
-  email: z.string().trim().email("Введите корректный email").max(254),
+  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
+  email: z
+    .union([
+      z.literal(""),
+      z.string().trim().email("Введите корректный email").max(254),
+    ])
+    .optional(),
   login: z
     .string()
     .trim()
-    .min(3, "Минимум 3 символа")
-    .max(64)
+    .min(5, "Укажите фамилию и имя")
+    .max(160, "ФИО не должно превышать 160 символов")
     .regex(
-      /^[a-z0-9._-]+$/u,
-      "Только латинские буквы, цифры, точка, дефис и _",
+      /^\p{L}+(?:[-']\p{L}+)*(?: \p{L}+(?:[-']\p{L}+)*){1,2}$/u,
+      "Введите фамилию, имя и при наличии отчество через пробел",
     ),
   roleIds: z.array(z.string().uuid()).min(1, "Назначьте хотя бы одну роль"),
 });
@@ -70,21 +75,32 @@ export function EditUserForm({
       <input type="hidden" {...register("id")} />
       {serverError ? <Alert>{serverError}</Alert> : null}
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Имя" error={errors.name?.message}>
-          <Input aria-invalid={Boolean(errors.name)} {...register("name")} />
-        </Field>
-        <Field label="Email" error={errors.email?.message}>
+        <Field label="ФИО" error={errors.login?.message}>
           <Input
-            type="email"
-            aria-invalid={Boolean(errors.email)}
-            {...register("email")}
+            aria-label="ФИО"
+            aria-invalid={Boolean(errors.login)}
+            placeholder="Иванов Иван Иванович"
+            {...register("login")}
           />
         </Field>
-        <Field label="Логин" error={errors.login?.message}>
+        <Field label="Номер телефона" error={errors.phone?.message}>
           <Input
-            autoCapitalize="none"
-            aria-invalid={Boolean(errors.login)}
-            {...register("login")}
+            aria-label="Номер телефона"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            aria-invalid={Boolean(errors.phone)}
+            placeholder="+7 999 123-45-67"
+            {...register("phone")}
+          />
+        </Field>
+        <Field label="Email (необязательно)" error={errors.email?.message}>
+          <Input
+            aria-label="Email (необязательно)"
+            type="email"
+            aria-invalid={Boolean(errors.email)}
+            placeholder="Можно оставить пустым"
+            {...register("email")}
           />
         </Field>
       </div>

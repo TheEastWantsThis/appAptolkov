@@ -3,30 +3,35 @@ import { z } from "zod";
 import { passwordSchema } from "@/modules/auth/application/password";
 
 export const loginSchema = z.object({
-  identifier: z.string().trim().min(1, "Введите email или логин").max(254),
+  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
   password: z.string().min(1, "Введите пароль").max(128),
 });
 
-const emailSchema = z
-  .string()
-  .trim()
-  .email("Введите корректный email")
-  .max(254)
-  .transform((value) => value.toLowerCase());
+const emailSchema = z.preprocess(
+  (value) =>
+    typeof value === "string" && value.trim() === "" ? undefined : value,
+  z
+    .string()
+    .trim()
+    .email("Введите корректный email")
+    .max(254)
+    .transform((value) => value.toLowerCase())
+    .optional(),
+);
 
 const loginNameSchema = z
   .string()
   .trim()
-  .min(3, "Логин должен содержать не менее 3 символов")
-  .max(64)
+  .min(5, "Укажите фамилию и имя")
+  .max(160, "ФИО не должно превышать 160 символов")
   .regex(
-    /^[a-z0-9._-]+$/u,
-    "Допустимы латинские буквы, цифры, точка, дефис и подчёркивание",
+    /^\p{L}+(?:[-']\p{L}+)*(?: \p{L}+(?:[-']\p{L}+)*){1,2}$/u,
+    "Введите фамилию, имя и при наличии отчество через пробел",
   )
-  .transform((value) => value.toLowerCase());
+  .transform((value) => value.replace(/\s+/gu, " "));
 
 export const createUserSchema = z.object({
-  name: z.string().trim().min(2, "Укажите имя").max(160),
+  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
   email: emailSchema,
   login: loginNameSchema,
   password: passwordSchema,
@@ -35,7 +40,7 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = z.object({
   id: z.string().uuid(),
-  name: z.string().trim().min(2, "Укажите имя").max(160),
+  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
   email: emailSchema,
   login: loginNameSchema,
   roleIds: z.array(z.string().uuid()).min(1, "Назначьте хотя бы одну роль"),

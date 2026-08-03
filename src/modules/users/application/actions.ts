@@ -22,6 +22,7 @@ import { SYSTEM_ROLES } from "@/modules/auth/domain/roles";
 import type { ActionResult } from "@/shared/actions/action-result";
 import { validationActionError } from "@/shared/actions/action-result";
 import { handleActionError } from "@/shared/actions/handle-action-error";
+import { isValidNormalizedPhone, normalizePhone } from "@/shared/domain/phone";
 
 async function assertRoleIds(roleIds: readonly string[]) {
   const count = await prisma.role.count({
@@ -74,19 +75,62 @@ export async function createUserAction(
   }
 
   try {
-    const context = await requirePermission(PERMISSIONS.USER_MANAGE);
+    const context = await requirePermission(PERMISSIONS.USER_PASSWORD_MANAGE);
+    await requirePermission(PERMISSIONS.USER_MANAGE);
+    const phoneNormalized = normalizePhone(parsed.data.phone);
+    if (!isValidNormalizedPhone(phoneNormalized)) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION",
+          message: "Введите корректный номер телефона",
+        },
+      };
+    }
+    const duplicatePhone = await prisma.user.findUnique({
+      where: { phoneNormalized },
+      select: { id: true },
+    });
+    if (duplicatePhone) {
+      return {
+        ok: false,
+        error: {
+          code: "CONFLICT",
+          message: "Этот номер телефона уже используется",
+        },
+      };
+    }
     const roleIds = [...new Set(parsed.data.roleIds)];
     await assertRoleIds(roleIds);
+
+    const duplicateLogin = await prisma.user.findFirst({
+      where: {
+        login: { equals: parsed.data.login, mode: "insensitive" },
+        archivedAt: null,
+      },
+      select: { id: true },
+    });
+    if (duplicateLogin) {
+      return {
+        ok: false,
+        error: {
+          code: "CONFLICT",
+          message: "Пользователь с таким ФИО уже существует",
+        },
+      };
+    }
     const passwordHash = await hashPassword(parsed.data.password);
 
     const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
-          name: parsed.data.name,
-          email: parsed.data.email,
+          name: parsed.data.login,
+          email: parsed.data.email ?? null,
+          phone: parsed.data.phone,
+          phoneNormalized,
           login: parsed.data.login,
           passwordHash,
-          mustChangePassword: true,
+          mustChangePassword: false,
           roles: {
             create: roleIds.map((roleId) => ({
               roleId,
@@ -105,6 +149,7 @@ export async function createUserAction(
           afterData: {
             name: created.name,
             email: created.email,
+            phoneLast4: phoneNormalized.slice(-4),
             login: created.login,
             roleIds,
           },
@@ -131,6 +176,16 @@ export async function updateUserAction(
 
   try {
     const context = await requirePermission(PERMISSIONS.USER_MANAGE);
+    const phoneNormalized = normalizePhone(parsed.data.phone);
+    if (!isValidNormalizedPhone(phoneNormalized)) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION",
+          message: "Введите корректный номер телефона",
+        },
+      };
+    }
     if (context.userId === parsed.data.id) {
       return {
         ok: false,
@@ -164,12 +219,49 @@ export async function updateUserAction(
       };
     }
 
+    const duplicatePhone = await prisma.user.findFirst({
+      where: {
+        id: { not: parsed.data.id },
+        phoneNormalized,
+      },
+      select: { id: true },
+    });
+    if (duplicatePhone) {
+      return {
+        ok: false,
+        error: {
+          code: "CONFLICT",
+          message: "Этот номер телефона уже используется",
+        },
+      };
+    }
+
+    const duplicateLogin = await prisma.user.findFirst({
+      where: {
+        id: { not: parsed.data.id },
+        login: { equals: parsed.data.login, mode: "insensitive" },
+        archivedAt: null,
+      },
+      select: { id: true },
+    });
+    if (duplicateLogin) {
+      return {
+        ok: false,
+        error: {
+          code: "CONFLICT",
+          message: "Пользователь с таким ФИО уже существует",
+        },
+      };
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: parsed.data.id },
         data: {
-          name: parsed.data.name,
-          email: parsed.data.email,
+          name: parsed.data.login,
+          email: parsed.data.email ?? null,
+          phone: parsed.data.phone,
+          phoneNormalized,
           login: parsed.data.login,
           sessionVersion: { increment: 1 },
         },
@@ -196,8 +288,9 @@ export async function updateUserAction(
             roleIds: before.roles.map(({ roleId }) => roleId),
           },
           afterData: {
-            name: parsed.data.name,
-            email: parsed.data.email,
+            name: parsed.data.login,
+            email: parsed.data.email ?? null,
+            phoneLast4: phoneNormalized.slice(-4),
             login: parsed.data.login,
             roleIds,
           },
@@ -319,17 +412,8 @@ export async function resetUserPasswordAction(
   }
 
   try {
-    const context = await requirePermission(PERMISSIONS.USER_MANAGE);
-    if (context.userId === parsed.data.id) {
-      return {
-        ok: false,
-        error: {
-          code: "CONFLICT",
-          message: "Используйте смену пароля в своём профиле",
-        },
-      };
-    }
-    const temporaryPassword = `${randomBytes(12).toString("base64url")}Aa1!`;
+    const context = await requirePermission(PERMISSIONS.USER_PASSWORD_MANAGE);
+    const temporaryPassword = randomBytes(6).toString("base64url").slice(0, 6);
     const validPassword = passwordSchema.parse(temporaryPassword);
     const passwordHash = await hashPassword(validPassword);
 
@@ -339,7 +423,7 @@ export async function resetUserPasswordAction(
         data: {
           passwordHash,
           passwordChangedAt: new Date(),
-          mustChangePassword: true,
+          mustChangePassword: false,
           sessionVersion: { increment: 1 },
         },
       });

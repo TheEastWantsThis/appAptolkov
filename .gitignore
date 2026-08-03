@@ -14,3 +14,6 @@ src/generated/
 npm-debug.log*
 .next-server*.log
 .DS_Store
+
+.runtime/
+tools/cloudflared.exe

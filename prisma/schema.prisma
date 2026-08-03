@@ -156,17 +156,53 @@ enum InventoryMovementType {
   CONSUMPTION
   RESERVATION
   RELEASE
+  ISSUE
+  RETURN
+  WRITE_OFF
+  TRANSFER
   ADJUSTMENT
+}
+
+enum ProjectMaterialStatus {
+  PLANNED
+  PREPARED
+  PARTIALLY_ISSUED
+  ISSUED
+  PARTIALLY_RETURNED
+  RETURNED
+  USED
+  WRITTEN_OFF
+  CANCELLED
+}
+
+enum StockReservationStatus {
+  ACTIVE
+  PARTIALLY_ISSUED
+  ISSUED
+  RELEASED
+  CANCELLED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
 }
 
 model User {
   id                        String                     @id @default(uuid()) @db.Uuid
-  email                     String                     @unique @db.VarChar(254)
+  email                     String?                    @unique @db.VarChar(254)
   emailVerified             DateTime?
-  login                     String                     @unique @db.VarChar(64)
+  phone                     String?                    @unique @db.VarChar(32)
+  phoneNormalized           String?                    @unique @db.VarChar(20)
+  login                     String                     @unique @db.VarChar(160)
   name                      String                     @db.VarChar(160)
   image                     String?
   passwordHash              String
+  failedLoginAttempts       Int                        @default(0)
+  loginLockedUntil          DateTime?
   isActive                  Boolean                    @default(true)
   blockedAt                 DateTime?
   blockedReason             String?                    @db.VarChar(500)
@@ -207,8 +243,11 @@ model User {
   financeUpdates            ProjectFinance[]           @relation("FinanceUpdatedBy")
   notifications             Notification[]
   stockMovements            StockMovement[]            @relation("StockMovementActor")
+  stockReservations         StockReservation[]         @relation("StockReservationActor")
+  purchaseOrders            PurchaseOrder[]            @relation("PurchaseOrderCreator")
 
   @@index([isActive, archivedAt])
+  @@index([loginLockedUntil])
   @@map("users")
 }
 
@@ -378,32 +417,34 @@ model Customer {
 }
 
 model Project {
-  id                String                     @id @default(uuid()) @db.Uuid
-  number            String                     @unique @db.VarChar(32)
-  customerId        String                     @db.Uuid
-  leadId            String?                    @unique @db.Uuid
-  source            LeadSource
-  status            ProjectStatus              @default(QUALIFIED)
-  address           String                     @db.VarChar(500)
-  description       String?                    @db.VarChar(2000)
-  createdById       String                     @db.Uuid
-  createdAt         DateTime                   @default(now())
-  updatedAt         DateTime                   @updatedAt
-  customer          Customer                   @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  lead              Lead?                      @relation(fields: [leadId], references: [id], onDelete: SetNull)
-  createdBy         User                       @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  responsibles      ProjectResponsible[]
-  tasks             WorkTask[]
-  comments          ProjectComment[]
-  files             ProjectFile[]
-  statusHistory     ProjectStatusHistory[]
-  assignmentHistory ProjectAssignmentHistory[]
-  events            CalendarEvent[]
-  rooms             ProjectRoom[]
-  measurements      Measurement[]
-  estimates         Estimate[]
-  installations     Installation[]
-  finance           ProjectFinance?
+  id                   String                       @id @default(uuid()) @db.Uuid
+  number               String                       @unique @db.VarChar(32)
+  customerId           String                       @db.Uuid
+  leadId               String?                      @unique @db.Uuid
+  source               LeadSource
+  status               ProjectStatus                @default(QUALIFIED)
+  address              String                       @db.VarChar(500)
+  description          String?                      @db.VarChar(2000)
+  createdById          String                       @db.Uuid
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  customer             Customer                     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  lead                 Lead?                        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  createdBy            User                         @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  responsibles         ProjectResponsible[]
+  tasks                WorkTask[]
+  comments             ProjectComment[]
+  files                ProjectFile[]
+  statusHistory        ProjectStatusHistory[]
+  assignmentHistory    ProjectAssignmentHistory[]
+  events               CalendarEvent[]
+  rooms                ProjectRoom[]
+  measurements         Measurement[]
+  estimates            Estimate[]
+  installations        Installation[]
+  finance              ProjectFinance?
+  materialRequirements ProjectMaterialRequirement[]
+  stockMovements       StockMovement[]
 
   @@index([status, updatedAt])
   @@index([customerId])
@@ -532,43 +573,44 @@ model CalendarEvent {
 }
 
 model ProjectRoom {
-  id                    String              @id @default(uuid()) @db.Uuid
-  projectId             String              @db.Uuid
-  measurementId         String?             @db.Uuid
-  name                  String              @db.VarChar(160)
-  areaMode              AreaCalculationMode @default(AUTO)
-  length                Decimal?            @db.Decimal(10, 2)
-  width                 Decimal?            @db.Decimal(10, 2)
-  area                  Decimal?            @db.Decimal(10, 2)
-  perimeter             Decimal?            @db.Decimal(10, 2)
-  height                Decimal?            @db.Decimal(10, 2)
-  corners               Int                 @default(4)
-  canvasType            String?             @db.VarChar(100)
-  manufacturer          String?             @db.VarChar(120)
-  color                 String?             @db.VarChar(100)
-  texture               String?             @db.VarChar(100)
-  profileType           String?             @db.VarChar(100)
-  profileLength         Decimal?            @db.Decimal(10, 2)
-  insertLength          Decimal?            @db.Decimal(10, 2)
-  pipes                 Int                 @default(0)
-  lights                Int                 @default(0)
-  chandeliers           Int                 @default(0)
-  tracks                Decimal             @default(0) @db.Decimal(10, 2)
-  cornices              Decimal             @default(0) @db.Decimal(10, 2)
-  niches                Decimal             @default(0) @db.Decimal(10, 2)
-  ventilation           Int                 @default(0)
-  sensors               Int                 @default(0)
-  cabinetBypass         Decimal             @default(0) @db.Decimal(10, 2)
-  additionalWorks       String?             @db.VarChar(2000)
-  additionalWorkUnits   Decimal             @default(0) @db.Decimal(10, 2)
-  complexityCoefficient Decimal             @default(1) @db.Decimal(6, 3)
-  comment               String?             @db.VarChar(2000)
-  description           String?             @db.VarChar(1000)
-  sortOrder             Int                 @default(0)
-  project               Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  measurement           Measurement?        @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  id                    String                       @id @default(uuid()) @db.Uuid
+  projectId             String                       @db.Uuid
+  measurementId         String?                      @db.Uuid
+  name                  String                       @db.VarChar(160)
+  areaMode              AreaCalculationMode          @default(AUTO)
+  length                Decimal?                     @db.Decimal(10, 2)
+  width                 Decimal?                     @db.Decimal(10, 2)
+  area                  Decimal?                     @db.Decimal(10, 2)
+  perimeter             Decimal?                     @db.Decimal(10, 2)
+  height                Decimal?                     @db.Decimal(10, 2)
+  corners               Int                          @default(4)
+  canvasType            String?                      @db.VarChar(100)
+  manufacturer          String?                      @db.VarChar(120)
+  color                 String?                      @db.VarChar(100)
+  texture               String?                      @db.VarChar(100)
+  profileType           String?                      @db.VarChar(100)
+  profileLength         Decimal?                     @db.Decimal(10, 2)
+  insertLength          Decimal?                     @db.Decimal(10, 2)
+  pipes                 Int                          @default(0)
+  lights                Int                          @default(0)
+  chandeliers           Int                          @default(0)
+  tracks                Decimal                      @default(0) @db.Decimal(10, 2)
+  cornices              Decimal                      @default(0) @db.Decimal(10, 2)
+  niches                Decimal                      @default(0) @db.Decimal(10, 2)
+  ventilation           Int                          @default(0)
+  sensors               Int                          @default(0)
+  cabinetBypass         Decimal                      @default(0) @db.Decimal(10, 2)
+  additionalWorks       String?                      @db.VarChar(2000)
+  additionalWorkUnits   Decimal                      @default(0) @db.Decimal(10, 2)
+  complexityCoefficient Decimal                      @default(1) @db.Decimal(6, 3)
+  comment               String?                      @db.VarChar(2000)
+  description           String?                      @db.VarChar(1000)
+  sortOrder             Int                          @default(0)
+  project               Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  measurement           Measurement?                 @relation(fields: [measurementId], references: [id], onDelete: SetNull)
   media                 ProjectRoomMedia[]
   estimateLines         EstimateLine[]
+  materialRequirements  ProjectMaterialRequirement[]
 
   @@index([projectId, sortOrder])
   @@index([measurementId])
@@ -635,25 +677,26 @@ model Tariff {
 }
 
 model Estimate {
-  id               String         @id @default(uuid()) @db.Uuid
-  projectId        String         @db.Uuid
-  measurementId    String?        @db.Uuid
-  version          Int
-  status           EstimateStatus @default(DRAFT)
-  authorId         String         @db.Uuid
-  tariffSnapshot   Json
-  discountPercent  Decimal        @default(0) @db.Decimal(6, 2)
-  subtotalInternal Decimal        @db.Decimal(14, 2)
-  subtotalClient   Decimal        @db.Decimal(14, 2)
-  discountAmount   Decimal        @db.Decimal(14, 2)
-  totalInternal    Decimal        @db.Decimal(14, 2)
-  totalClient      Decimal        @db.Decimal(14, 2)
-  createdAt        DateTime       @default(now())
-  finalizedAt      DateTime?
-  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  measurement      Measurement?   @relation(fields: [measurementId], references: [id], onDelete: SetNull)
-  author           User           @relation("EstimateAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  lines            EstimateLine[]
+  id                   String                       @id @default(uuid()) @db.Uuid
+  projectId            String                       @db.Uuid
+  measurementId        String?                      @db.Uuid
+  version              Int
+  status               EstimateStatus               @default(DRAFT)
+  authorId             String                       @db.Uuid
+  tariffSnapshot       Json
+  discountPercent      Decimal                      @default(0) @db.Decimal(6, 2)
+  subtotalInternal     Decimal                      @db.Decimal(14, 2)
+  subtotalClient       Decimal                      @db.Decimal(14, 2)
+  discountAmount       Decimal                      @db.Decimal(14, 2)
+  totalInternal        Decimal                      @db.Decimal(14, 2)
+  totalClient          Decimal                      @db.Decimal(14, 2)
+  createdAt            DateTime                     @default(now())
+  finalizedAt          DateTime?
+  project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  measurement          Measurement?                 @relation(fields: [measurementId], references: [id], onDelete: SetNull)
+  author               User                         @relation("EstimateAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  lines                EstimateLine[]
+  materialRequirements ProjectMaterialRequirement[]
 
   @@unique([projectId, version])
   @@index([measurementId])
@@ -682,34 +725,36 @@ model EstimateLine {
 }
 
 model Installation {
-  id                   String                      @id @default(uuid()) @db.Uuid
-  projectId            String                      @db.Uuid
+  id                   String                       @id @default(uuid()) @db.Uuid
+  projectId            String                       @db.Uuid
   startsAt             DateTime
   endsAt               DateTime
-  vehicle              String?                     @db.VarChar(200)
-  schedulerComment     String?                     @db.VarChar(2000)
+  vehicle              String?                      @db.VarChar(200)
+  schedulerComment     String?                      @db.VarChar(2000)
   plannedMaterials     String[]
   plannedTools         String[]
-  technicalBrief       String                      @db.VarChar(5000)
-  specialConditions    String?                     @db.VarChar(2000)
-  crewComment          String?                     @db.VarChar(2000)
-  status               InstallationStatus          @default(SCHEDULED)
+  technicalBrief       String                       @db.VarChar(5000)
+  specialConditions    String?                      @db.VarChar(2000)
+  crewComment          String?                      @db.VarChar(2000)
+  status               InstallationStatus           @default(SCHEDULED)
   actualStartedAt      DateTime?
   actualEndedAt        DateTime?
-  workComment          String?                     @db.VarChar(3000)
-  issues               String?                     @db.VarChar(3000)
-  responsibleSignature String?                     @db.VarChar(1000)
+  workComment          String?                      @db.VarChar(3000)
+  issues               String?                      @db.VarChar(3000)
+  responsibleSignature String?                      @db.VarChar(1000)
   acceptedAt           DateTime?
-  parentInstallationId String?                     @db.Uuid
-  createdAt            DateTime                    @default(now())
-  updatedAt            DateTime                    @updatedAt
-  project              Project                     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentInstallationId String?                      @db.Uuid
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  project              Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   participants         InstallationParticipant[]
   media                InstallationMedia[]
   usedMaterials        InstallationMaterialUsage[]
   calendarEvents       CalendarEvent[]
-  parentInstallation   Installation?               @relation("InstallationRepeats", fields: [parentInstallationId], references: [id], onDelete: SetNull)
-  repeatVisits         Installation[]              @relation("InstallationRepeats")
+  parentInstallation   Installation?                @relation("InstallationRepeats", fields: [parentInstallationId], references: [id], onDelete: SetNull)
+  repeatVisits         Installation[]               @relation("InstallationRepeats")
+  materialRequirements ProjectMaterialRequirement[]
+  stockMovements       StockMovement[]
 
   @@index([projectId, startsAt])
   @@index([status, startsAt])
@@ -802,40 +847,261 @@ model Notification {
   @@map("notifications")
 }
 
-model InventoryItem {
-  id              String          @id @default(uuid()) @db.Uuid
-  code            String          @unique @db.VarChar(100)
-  name            String          @db.VarChar(255)
-  unit            String          @db.VarChar(32)
-  quantity        Decimal         @default(0) @db.Decimal(14, 3)
-  reserved        Decimal         @default(0) @db.Decimal(14, 3)
-  minimumQuantity Decimal         @default(0) @db.Decimal(14, 3)
-  version         Int             @default(1)
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  movements       StockMovement[]
+model InventoryCategory {
+  id         String              @id @default(uuid()) @db.Uuid
+  code       String              @unique @db.VarChar(100)
+  name       String              @db.VarChar(200)
+  parentId   String?             @db.Uuid
+  isActive   Boolean             @default(true)
+  archivedAt DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  parent     InventoryCategory?  @relation("InventoryCategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children   InventoryCategory[] @relation("InventoryCategoryTree")
+  items      InventoryItem[]
+
+  @@index([parentId, isActive])
+  @@map("inventory_categories")
+}
+
+model InventoryUnit {
+  id        String          @id @default(uuid()) @db.Uuid
+  code      String          @unique @db.VarChar(32)
+  name      String          @db.VarChar(100)
+  symbol    String          @db.VarChar(32)
+  precision Int             @default(3)
+  isActive  Boolean         @default(true)
+  items     InventoryItem[]
+
+  @@map("inventory_units")
+}
+
+model InventoryLocation {
+  id                String             @id @default(uuid()) @db.Uuid
+  code              String             @unique @db.VarChar(100)
+  name              String             @db.VarChar(200)
+  address           String?            @db.VarChar(500)
+  isActive          Boolean            @default(true)
+  archivedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  defaultItems      InventoryItem[]    @relation("InventoryDefaultLocation")
+  balances          InventoryBalance[]
+  outgoingMovements StockMovement[]    @relation("StockMovementFromLocation")
+  incomingMovements StockMovement[]    @relation("StockMovementToLocation")
+  stockReservations StockReservation[]
 
   @@index([isActive, name])
+  @@map("inventory_locations")
+}
+
+model Supplier {
+  id             String          @id @default(uuid()) @db.Uuid
+  code           String          @unique @db.VarChar(100)
+  name           String          @db.VarChar(255)
+  contactPerson  String?         @db.VarChar(160)
+  phone          String?         @db.VarChar(32)
+  email          String?         @db.VarChar(254)
+  comment        String?         @db.VarChar(1000)
+  isActive       Boolean         @default(true)
+  archivedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  prices         SupplierPrice[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([isActive, name])
+  @@map("suppliers")
+}
+
+model SupplierPrice {
+  id         String        @id @default(uuid()) @db.Uuid
+  supplierId String        @db.Uuid
+  itemId     String        @db.Uuid
+  price      Decimal       @db.Decimal(14, 2)
+  currency   String        @default("RUB") @db.VarChar(3)
+  validFrom  DateTime      @default(now())
+  validUntil DateTime?
+  supplier   Supplier      @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  item       InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, validFrom(sort: Desc)])
+  @@map("supplier_prices")
+}
+
+model InventoryItem {
+  id                 String                       @id @default(uuid()) @db.Uuid
+  code               String                       @unique @db.VarChar(100)
+  name               String                       @db.VarChar(255)
+  unit               String                       @db.VarChar(32)
+  categoryId         String?                      @db.Uuid
+  unitId             String?                      @db.Uuid
+  defaultLocationId  String?                      @db.Uuid
+  quantity           Decimal                      @default(0) @db.Decimal(14, 3)
+  reserved           Decimal                      @default(0) @db.Decimal(14, 3)
+  minimumQuantity    Decimal                      @default(0) @db.Decimal(14, 3)
+  purchasePrice      Decimal?                     @db.Decimal(14, 2)
+  version            Int                          @default(1)
+  isActive           Boolean                      @default(true)
+  archivedAt         DateTime?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+  category           InventoryCategory?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  unitDefinition     InventoryUnit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  defaultLocation    InventoryLocation?           @relation("InventoryDefaultLocation", fields: [defaultLocationId], references: [id], onDelete: SetNull)
+  balances           InventoryBalance[]
+  movements          StockMovement[]
+  supplierPrices     SupplierPrice[]
+  requirements       ProjectMaterialRequirement[]
+  purchaseOrderItems PurchaseOrderItem[]
+
+  @@index([isActive, archivedAt, name])
   @@map("inventory_items")
 }
 
+model InventoryBalance {
+  id           String             @id @default(uuid()) @db.Uuid
+  itemId       String             @db.Uuid
+  locationId   String             @db.Uuid
+  quantity     Decimal            @default(0) @db.Decimal(14, 3)
+  reserved     Decimal            @default(0) @db.Decimal(14, 3)
+  version      Int                @default(1)
+  updatedAt    DateTime           @updatedAt
+  item         InventoryItem      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  location     InventoryLocation  @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  reservations StockReservation[]
+
+  @@unique([itemId, locationId])
+  @@index([locationId, itemId])
+  @@map("inventory_balances")
+}
+
+model ProjectMaterialRequirement {
+  id             String                @id @default(uuid()) @db.Uuid
+  projectId      String                @db.Uuid
+  roomId         String?               @db.Uuid
+  estimateId     String?               @db.Uuid
+  installationId String?               @db.Uuid
+  itemId         String                @db.Uuid
+  required       Decimal               @db.Decimal(14, 3)
+  reserved       Decimal               @default(0) @db.Decimal(14, 3)
+  issued         Decimal               @default(0) @db.Decimal(14, 3)
+  consumed       Decimal               @default(0) @db.Decimal(14, 3)
+  returned       Decimal               @default(0) @db.Decimal(14, 3)
+  writtenOff     Decimal               @default(0) @db.Decimal(14, 3)
+  status         ProjectMaterialStatus @default(PLANNED)
+  version        Int                   @default(1)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  project        Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  room           ProjectRoom?          @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  estimate       Estimate?             @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  installation   Installation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  item           InventoryItem         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  reservations   StockReservation[]
+  movements      StockMovement[]
+
+  @@index([projectId, status])
+  @@index([itemId, status])
+  @@index([installationId, status])
+  @@map("project_material_requirements")
+}
+
+model StockReservation {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  requirementId       String                     @db.Uuid
+  balanceId           String                     @db.Uuid
+  quantity            Decimal                    @db.Decimal(14, 3)
+  issued              Decimal                    @default(0) @db.Decimal(14, 3)
+  released            Decimal                    @default(0) @db.Decimal(14, 3)
+  consumed            Decimal                    @default(0) @db.Decimal(14, 3)
+  returned            Decimal                    @default(0) @db.Decimal(14, 3)
+  writtenOff          Decimal                    @default(0) @db.Decimal(14, 3)
+  status              StockReservationStatus     @default(ACTIVE)
+  reservedById        String                     @db.Uuid
+  reservedAt          DateTime                   @default(now())
+  updatedAt           DateTime                   @updatedAt
+  requirement         ProjectMaterialRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  balance             InventoryBalance           @relation(fields: [balanceId], references: [id], onDelete: Restrict)
+  reservedBy          User                       @relation("StockReservationActor", fields: [reservedById], references: [id], onDelete: Restrict)
+  movements           StockMovement[]
+  inventoryLocation   InventoryLocation?         @relation(fields: [inventoryLocationId], references: [id])
+  inventoryLocationId String?                    @db.Uuid
+
+  @@index([requirementId, status])
+  @@index([balanceId, status])
+  @@map("stock_reservations")
+}
+
+model PurchaseOrder {
+  id          String              @id @default(uuid()) @db.Uuid
+  number      String              @unique @db.VarChar(64)
+  supplierId  String              @db.Uuid
+  status      PurchaseOrderStatus @default(DRAFT)
+  expectedAt  DateTime?
+  documentRef String?             @db.VarChar(255)
+  comment     String?             @db.VarChar(1000)
+  createdById String              @db.Uuid
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  supplier    Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy   User                @relation("PurchaseOrderCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  items       PurchaseOrderItem[]
+
+  @@index([status, expectedAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(uuid()) @db.Uuid
+  purchaseOrderId String        @db.Uuid
+  itemId          String        @db.Uuid
+  ordered         Decimal       @db.Decimal(14, 3)
+  received        Decimal       @default(0) @db.Decimal(14, 3)
+  unitPrice       Decimal       @db.Decimal(14, 2)
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  item            InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([purchaseOrderId, itemId])
+  @@index([itemId])
+  @@map("purchase_order_items")
+}
+
 model StockMovement {
-  id            String                @id @default(uuid()) @db.Uuid
-  itemId        String                @db.Uuid
-  actorId       String                @db.Uuid
-  type          InventoryMovementType
-  quantityDelta Decimal               @db.Decimal(14, 3)
-  reservedDelta Decimal               @default(0) @db.Decimal(14, 3)
-  quantityAfter Decimal               @db.Decimal(14, 3)
-  reservedAfter Decimal               @db.Decimal(14, 3)
-  reason        String                @db.VarChar(500)
-  createdAt     DateTime              @default(now())
-  item          InventoryItem         @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  actor         User                  @relation("StockMovementActor", fields: [actorId], references: [id], onDelete: Restrict)
+  id                        String                      @id @default(uuid()) @db.Uuid
+  itemId                    String                      @db.Uuid
+  actorId                   String                      @db.Uuid
+  type                      InventoryMovementType
+  quantity                  Decimal                     @db.Decimal(14, 3)
+  quantityDelta             Decimal                     @db.Decimal(14, 3)
+  reservedDelta             Decimal                     @default(0) @db.Decimal(14, 3)
+  quantityBefore            Decimal                     @db.Decimal(14, 3)
+  quantityAfter             Decimal                     @db.Decimal(14, 3)
+  reservedBefore            Decimal                     @db.Decimal(14, 3)
+  reservedAfter             Decimal                     @db.Decimal(14, 3)
+  destinationQuantityBefore Decimal?                    @db.Decimal(14, 3)
+  destinationQuantityAfter  Decimal?                    @db.Decimal(14, 3)
+  projectId                 String?                     @db.Uuid
+  installationId            String?                     @db.Uuid
+  requirementId             String?                     @db.Uuid
+  reservationId             String?                     @db.Uuid
+  fromLocationId            String?                     @db.Uuid
+  toLocationId              String?                     @db.Uuid
+  documentRef               String?                     @db.VarChar(255)
+  reason                    String                      @db.VarChar(500)
+  createdAt                 DateTime                    @default(now())
+  item                      InventoryItem               @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  actor                     User                        @relation("StockMovementActor", fields: [actorId], references: [id], onDelete: Restrict)
+  project                   Project?                    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  installation              Installation?               @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  requirement               ProjectMaterialRequirement? @relation(fields: [requirementId], references: [id], onDelete: SetNull)
+  reservation               StockReservation?           @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  fromLocation              InventoryLocation?          @relation("StockMovementFromLocation", fields: [fromLocationId], references: [id], onDelete: Restrict)
+  toLocation                InventoryLocation?          @relation("StockMovementToLocation", fields: [toLocationId], references: [id], onDelete: Restrict)
 
   @@index([itemId, createdAt(sort: Desc)])
   @@index([actorId, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
   @@map("stock_movements")
 }
 

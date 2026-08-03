@@ -1,97 +1,14 @@
+import Link from "next/link";
 import { Boxes, TriangleAlert } from "lucide-react";
-
-import {
-  CreateInventoryItemForm,
-  InventoryAdjustmentForm,
-} from "@/components/inventory/inventory-forms";
+import { ArchiveItemButton, CatalogForms, CreateInventoryItemForm, InventoryMovementForm, PurchaseOrderForm, SupplierPriceForm } from "@/components/inventory/inventory-forms";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/utils";
 import { listInventory } from "@/modules/inventory/application/queries";
 import { requirePagePermission } from "@/modules/auth/application/page-access";
 import { PERMISSIONS } from "@/modules/auth/domain/permissions";
 
-export default async function InventoryPage() {
-  await requirePagePermission(PERMISSIONS.INVENTORY_READ);
-  const { items, canManage } = await listInventory();
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Склад"
-        description="Остатки, резервы и журнал движений"
-        action={<Boxes className="text-primary size-7" />}
-      />
-      {canManage ? <CreateInventoryItemForm /> : null}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {items.map((item) => {
-          const available = Number(item.quantity) - Number(item.reserved);
-          const shortage = available < Number(item.minimumQuantity);
-          return (
-            <Card key={item.id} className={shortage ? "border-amber-400" : ""}>
-              <CardContent className="space-y-3 pt-5">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <b>{item.name}</b>
-                    <div className="text-muted-foreground text-xs">
-                      {item.code}
-                    </div>
-                  </div>
-                  {shortage ? (
-                    <Badge variant="destructive">
-                      <TriangleAlert />
-                      Дефицит
-                    </Badge>
-                  ) : (
-                    <Badge variant="success">В наличии</Badge>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Остаток</span>
-                    <br />
-                    <b>
-                      {Number(item.quantity)} {item.unit}
-                    </b>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Резерв</span>
-                    <br />
-                    <b>
-                      {Number(item.reserved)} {item.unit}
-                    </b>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Доступно</span>
-                    <br />
-                    <b>
-                      {available} {item.unit}
-                    </b>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  {item.movements.map((movement) => (
-                    <div
-                      key={movement.id}
-                      className="text-muted-foreground text-xs"
-                    >
-                      {formatDateTime(movement.createdAt)} ·{" "}
-                      {movement.actor.name} · {Number(movement.quantityDelta)} /
-                      резерв {Number(movement.reservedDelta)}
-                    </div>
-                  ))}
-                </div>
-                {canManage ? (
-                  <InventoryAdjustmentForm
-                    itemId={item.id}
-                    version={item.version}
-                  />
-                ) : null}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+const movementNames:Record<string,string>={RECEIPT:"Приход",RESERVATION:"Резерв",RELEASE:"Снятие резерва",ISSUE:"Выдача",RETURN:"Возврат",CONSUMPTION:"Использовано",WRITE_OFF:"Списание",TRANSFER:"Перемещение",ADJUSTMENT:"Корректировка"};
+export default async function InventoryPage(){await requirePagePermission(PERMISSIONS.INVENTORY_READ);const data=await listInventory();const options=data.items.map(x=>({id:x.id,name:x.name,unit:x.unit}));return <div className="space-y-6"><PageHeader title="Склад" description="Каталог, фактические остатки по локациям и неизменяемый журнал движений" action={<Boxes className="text-primary size-7"/>}/><div className="flex flex-wrap gap-2"><Button asChild variant="outline"><Link href="/inventory/requirements">Потребности и выдача</Link></Button><Button asChild variant="outline"><Link href="/inventory/shortage">Дефицит и закупка</Link></Button></div>{data.canManage?<><CatalogForms categories={data.categories.map(x=>({id:x.id,name:x.name}))}/><CreateInventoryItemForm categories={data.categories.filter(x=>x.isActive).map(x=>({id:x.id,name:x.name}))} units={data.units.map(x=>({id:x.id,name:`${x.name} (${x.symbol})`}))} locations={data.locations.filter(x=>x.isActive).map(x=>({id:x.id,name:x.name}))}/><SupplierPriceForm items={options} suppliers={data.suppliers.filter(x=>x.isActive).map(x=>({id:x.id,name:x.name}))}/><PurchaseOrderForm items={options} suppliers={data.suppliers.filter(x=>x.isActive).map(x=>({id:x.id,name:x.name}))}/></>:null}<div className="grid gap-4 lg:grid-cols-2">{data.items.map(item=>{const available=Number(item.quantity)-Number(item.reserved);const low=available<Number(item.minimumQuantity);return <Card key={item.id} className={!item.isActive?"opacity-60":low?"border-amber-400":""}><CardContent className="space-y-3 pt-5"><div className="flex items-start justify-between gap-2"><div><b>{item.name}</b><div className="text-muted-foreground text-xs">{item.code} · {item.category?.name??"Без категории"}</div></div><div className="flex items-center gap-1">{!item.isActive?<Badge variant="secondary">Архив</Badge>:low?<Badge variant="destructive"><TriangleAlert/>Дефицит</Badge>:<Badge variant="success">В наличии</Badge>}{data.canManage?<ArchiveItemButton itemId={item.id} archived={!item.isActive}/>:null}</div></div><div className="grid grid-cols-3 gap-2 text-sm"><div><span className="text-muted-foreground">Всего</span><br/><b>{Number(item.quantity)} {item.unit}</b></div><div><span className="text-muted-foreground">Резерв</span><br/><b>{Number(item.reserved)} {item.unit}</b></div><div><span className="text-muted-foreground">Доступно</span><br/><b>{available} {item.unit}</b></div></div><div className="rounded-lg bg-muted/40 p-2 text-xs">{item.balances.map(b=><div key={b.id}>{b.location.name}: {Number(b.quantity)}; резерв {Number(b.reserved)}</div>)}</div><div className="space-y-1">{item.movements.map(m=><div key={m.id} className="text-muted-foreground text-xs">{formatDateTime(m.createdAt)} · {movementNames[m.type]??m.type} · {Number(m.quantity)} {item.unit} · {m.actor.name}{m.documentRef?` · ${m.documentRef}`:""}<br/>{m.reason} · до {Number(m.quantityBefore)}, после {Number(m.quantityAfter)}</div>)}</div>{data.canManage&&item.isActive?<InventoryMovementForm itemId={item.id} locations={data.locations.filter(x=>x.isActive).map(x=>({id:x.id,name:x.name}))} projects={data.projects.map(x=>({id:x.id,number:x.number}))} canNegative={data.canNegative}/>:null}</CardContent></Card>})}</div></div>}

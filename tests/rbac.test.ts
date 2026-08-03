@@ -91,4 +91,14 @@ describe("серверное вычисление RBAC", () => {
     const permissions = resolvePermissions({ rolePermissions: [] });
     expect(permissions.has("unknown.permission")).toBe(false);
   });
+
+  it("общее управление пользователями не даёт доступ к паролям", () => {
+    const permissions = resolvePermissions({
+      rolePermissions: [PERMISSIONS.USER_MANAGE],
+    });
+    expect(hasPermission(permissions, PERMISSIONS.USER_MANAGE)).toBe(true);
+    expect(hasPermission(permissions, PERMISSIONS.USER_PASSWORD_MANAGE)).toBe(
+      false,
+    );
+  });
 });

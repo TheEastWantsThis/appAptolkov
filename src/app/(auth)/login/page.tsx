@@ -80,7 +80,7 @@ export default async function LoginPage() {
             <CardHeader className="pb-4">
               <CardTitle className="text-2xl">Добро пожаловать</CardTitle>
               <CardDescription>
-                Используйте корпоративный email или логин и пароль.
+                Используйте номер телефона сотрудника и пароль.
               </CardDescription>
             </CardHeader>
             <CardContent>

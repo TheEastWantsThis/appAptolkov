@@ -4,6 +4,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/modules/auth/application/password";
+import { normalizePhone } from "../src/shared/domain/phone";
 import {
   PERMISSION_DEFINITIONS,
   PERMISSIONS,
@@ -80,7 +81,11 @@ const ROLE_PERMISSIONS: Record<string, readonly PermissionCode[]> = {
     PERMISSIONS.FINANCE_MANAGE,
     PERMISSIONS.ANALYTICS_READ,
   ],
-  [SYSTEM_ROLES.MANAGER]: PERMISSION_DEFINITIONS.map(({ code }) => code),
+  [SYSTEM_ROLES.MANAGER]: PERMISSION_DEFINITIONS.map(({ code }) => code).filter(
+    (code) =>
+      code !== PERMISSIONS.USER_PASSWORD_MANAGE &&
+      code !== PERMISSIONS.INVENTORY_NEGATIVE_ALLOW,
+  ),
 };
 
 const DEMO_USERS = [
@@ -88,42 +93,49 @@ const DEMO_USERS = [
     role: SYSTEM_ROLES.PROMOTER,
     login: "promoter",
     email: "promoter@example.local",
+    phone: "+7 999 000-00-02",
     name: "Анна Промоутер",
   },
   {
     role: SYSTEM_ROLES.AD_OPERATOR,
     login: "operator",
     email: "operator@example.local",
+    phone: "+7 999 000-00-03",
     name: "Ольга Оператор",
   },
   {
     role: SYSTEM_ROLES.MEASURER,
     login: "measurer",
     email: "measurer@example.local",
+    phone: "+7 999 000-00-04",
     name: "Михаил Замерщик",
   },
   {
     role: SYSTEM_ROLES.INSTALLER,
     login: "installer",
     email: "installer@example.local",
+    phone: "+7 999 000-00-05",
     name: "Иван Монтажник",
   },
   {
     role: SYSTEM_ROLES.WAREHOUSE_MANAGER,
     login: "warehouse",
     email: "warehouse@example.local",
+    phone: "+7 999 000-00-06",
     name: "Сергей Кладовщик",
   },
   {
     role: SYSTEM_ROLES.FINANCE_MANAGER,
     login: "finance",
     email: "finance@example.local",
+    phone: "+7 999 000-00-07",
     name: "Елена Финансист",
   },
   {
     role: SYSTEM_ROLES.MANAGER,
     login: "manager",
     email: "manager@example.local",
+    phone: "+7 999 000-00-08",
     name: "Алексей Руководитель",
   },
 ] as const;
@@ -153,8 +165,8 @@ const TARIFFS = [
   ["MINIMUM", "Минимальная стоимость заказа", "Минимум", "FIXED", 0, 15000],
 ] as const;
 async function main() {
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "Admin123!";
-  const demoPassword = process.env.SEED_DEMO_PASSWORD ?? "Demo123!";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "Adm001";
+  const demoPassword = process.env.SEED_DEMO_PASSWORD ?? "Dem001";
   const [adminHash, demoHash] = await Promise.all([
     hashPassword(adminPassword),
     hashPassword(demoPassword),
@@ -222,13 +234,19 @@ async function main() {
     create: {
       login: "admin",
       email: "admin@example.local",
+      phone: "+7 999 000-00-01",
+      phoneNormalized: "79990000001",
       name: "Системный администратор",
       passwordHash: adminHash,
       mustChangePassword: false,
     },
     update: {
       name: "Системный администратор",
+      phone: "+7 999 000-00-01",
+      phoneNormalized: "79990000001",
       passwordHash: adminHash,
+      failedLoginAttempts: 0,
+      loginLockedUntil: null,
       isActive: true,
       blockedAt: null,
       blockedReason: null,
@@ -251,14 +269,20 @@ async function main() {
       create: {
         login: demo.login,
         email: demo.email,
+        phone: demo.phone,
+        phoneNormalized: normalizePhone(demo.phone),
         name: demo.name,
         passwordHash: demoHash,
         mustChangePassword: false,
       },
       update: {
         email: demo.email,
+        phone: demo.phone,
+        phoneNormalized: normalizePhone(demo.phone),
         name: demo.name,
         passwordHash: demoHash,
+        failedLoginAttempts: 0,
+        loginLockedUntil: null,
         isActive: true,
         blockedAt: null,
         blockedReason: null,
@@ -465,16 +489,115 @@ async function main() {
     },
     update: { updatedById: admin.id },
   });
-  const inventorySeeds = [
-    ["CANVAS_WHITE", "Полотно белое", "м²", 250, 80],
-    ["PROFILE_BASE", "Профиль базовый", "м", 180, 60],
-    ["FASTENERS", "Крепёж", "компл.", 4, 10],
-  ] as const;
-  for (const [code, name, unit, quantity, minimumQuantity] of inventorySeeds) {
-    await prisma.inventoryItem.upsert({
+  const materialCategory = await prisma.inventoryCategory.upsert({
+    where: { code: "MATERIALS" },
+    create: { code: "MATERIALS", name: "Основные материалы" },
+    update: { name: "Основные материалы", isActive: true },
+  });
+  const mainLocation = await prisma.inventoryLocation.upsert({
+    where: { code: "MAIN" },
+    create: {
+      code: "MAIN",
+      name: "Основной склад",
+      address: "Главная складская зона",
+    },
+    update: { name: "Основной склад", isActive: true },
+  });
+  const supplier = await prisma.supplier.upsert({
+    where: { code: "DEMO_SUPPLIER" },
+    create: { code: "DEMO_SUPPLIER", name: "Демонстрационный поставщик" },
+    update: { name: "Демонстрационный поставщик", isActive: true },
+  });
+  const units = new Map<string, { id: string; symbol: string }>();
+  for (const [code, name, symbol] of [
+    ["M2", "Квадратный метр", "м²"],
+    ["M", "Погонный метр", "м"],
+    ["SET", "Комплект", "компл."],
+  ] as const) {
+    const unit = await prisma.inventoryUnit.upsert({
       where: { code },
-      create: { code, name, unit, quantity, minimumQuantity },
-      update: { name, unit, minimumQuantity, isActive: true },
+      create: { code, name, symbol },
+      update: { name, symbol, isActive: true },
+    });
+    units.set(code, unit);
+  }
+  const inventorySeeds = [
+    ["CANVAS_BASE", "Полотно базовое", "M2", 250, 80, 350],
+    ["PROFILE_BASE", "Профиль базовый", "M", 180, 60, 120],
+    ["FASTENERS", "Крепёж", "SET", 4, 10, 500],
+  ] as const;
+  for (const [
+    code,
+    name,
+    unitCode,
+    quantity,
+    minimumQuantity,
+    purchasePrice,
+  ] of inventorySeeds) {
+    const unit = units.get(unitCode);
+    if (!unit) throw new Error(`Единица ${unitCode} не создана`);
+    const item = await prisma.inventoryItem.upsert({
+      where: { code },
+      create: {
+        code,
+        name,
+        unit: unit.symbol,
+        unitId: unit.id,
+        categoryId: materialCategory.id,
+        defaultLocationId: mainLocation.id,
+        quantity,
+        minimumQuantity,
+        purchasePrice,
+      },
+      update: {
+        name,
+        unit: unit.symbol,
+        unitId: unit.id,
+        categoryId: materialCategory.id,
+        defaultLocationId: mainLocation.id,
+        minimumQuantity,
+        purchasePrice,
+        isActive: true,
+        archivedAt: null,
+      },
+    });
+    await prisma.inventoryBalance.upsert({
+      where: {
+        itemId_locationId: { itemId: item.id, locationId: mainLocation.id },
+      },
+      create: { itemId: item.id, locationId: mainLocation.id, quantity },
+      update: {},
+    });
+    const price = await prisma.supplierPrice.findFirst({
+      where: { supplierId: supplier.id, itemId: item.id },
+    });
+    if (!price)
+      await prisma.supplierPrice.create({
+        data: {
+          supplierId: supplier.id,
+          itemId: item.id,
+          price: purchasePrice,
+        },
+      });
+  }
+  const demoProfile = await prisma.inventoryItem.findUniqueOrThrow({
+    where: { code: "PROFILE_BASE" },
+  });
+  const demoInstallation = await prisma.installation.findFirst({
+    where: { projectId: demoProject.id },
+    orderBy: { startsAt: "asc" },
+  });
+  const demoRequirement = await prisma.projectMaterialRequirement.findFirst({
+    where: { projectId: demoProject.id, itemId: demoProfile.id },
+  });
+  if (!demoRequirement) {
+    await prisma.projectMaterialRequirement.create({
+      data: {
+        projectId: demoProject.id,
+        installationId: demoInstallation?.id,
+        itemId: demoProfile.id,
+        required: 65,
+      },
     });
   }
   await prisma.auditLog.create({

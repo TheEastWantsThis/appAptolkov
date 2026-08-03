@@ -1,5 +1,3 @@
-import { AlertTriangle } from "lucide-react";
-
 import {
   DesktopSidebar,
   MobileBottomNavigation,
@@ -41,15 +39,6 @@ export default async function WorkspaceLayout({
             <SignOutButton />
           </div>
         </header>
-
-        {context.mustChangePassword ? (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 sm:px-6 lg:px-8">
-            <div className="mx-auto flex max-w-7xl items-center gap-2">
-              <AlertTriangle className="size-4 shrink-0" />
-              Временный пароль необходимо заменить в профиле.
-            </div>
-          </div>
-        ) : null}
 
         <main className="mx-auto max-w-7xl px-4 pt-6 pb-28 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10">
           {children}

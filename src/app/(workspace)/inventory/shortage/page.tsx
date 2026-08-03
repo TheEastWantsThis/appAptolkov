@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { PageHeader } from "@/components/layout/page-header";
+import { Button } from "@/components/ui/button";
+import { Card,CardContent } from "@/components/ui/card";
+import { requirePagePermission } from "@/modules/auth/application/page-access";
+import { PERMISSIONS } from "@/modules/auth/domain/permissions";
+import { getShortageReport } from "@/modules/inventory/application/queries";
+import { formatDateTime } from "@/lib/utils";
+export default async function ShortagePage(){await requirePagePermission(PERMISSIONS.INVENTORY_READ);const data=await getShortageReport();return <div className="space-y-6"><PageHeader title="Дефицит и закупка" description="Минимальные остатки, нехватка по проектам, ожидаемые поставки и рекомендация к заказу"/><Button asChild variant="outline"><Link href="/inventory">Назад на склад</Link></Button><div className="grid gap-4 lg:grid-cols-2">{data.shortages.map(row=><Card key={row.item.id}><CardContent className="grid grid-cols-2 gap-3 pt-5 text-sm"><b className="col-span-2">{row.item.name}</b><div>Доступно<br/><b>{row.available} {row.item.unit}</b></div><div>Минимум<br/><b>{Number(row.item.minimumQuantity)}</b></div><div>Нужно проектам<br/><b>{row.projectNeed}</b></div><div>Ожидается<br/><b>{row.expected}</b></div><div className="col-span-2">Рекомендуется заказать<br/><b className="text-lg">{row.recommended} {row.item.unit}</b></div></CardContent></Card>)}</div><h2 className="text-xl font-semibold">Ожидаемые поставки</h2>{data.orders.map(order=><Card key={order.id}><CardContent className="pt-5 text-sm"><b>{order.purchaseOrder.number} · {order.purchaseOrder.supplier.name}</b><div>{order.item.name}: {Number(order.ordered)-Number(order.received)} {order.item.unit}</div><div className="text-muted-foreground">Ожидается: {order.purchaseOrder.expectedAt?formatDateTime(order.purchaseOrder.expectedAt):"дата не указана"}</div></CardContent></Card>)}</div>}

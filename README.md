@@ -41,6 +41,14 @@ npx auth secret
 
 Не коммитьте .env и не используйте демонстрационные пароли в production.
 
+## Запуск одной кнопкой на Windows
+
+Подробная инструкция для текущего компьютера и старого ноутбука: [docs/START-WINDOWS-RU.md](docs/START-WINDOWS-RU.md).
+
+- `START-CRM.cmd` — локальный production-сервер;
+- `START-DEMO-INTERNET.cmd` — временная публичная HTTPS-ссылка;
+- `STOP-CRM.cmd` — корректная остановка приложения и базы.
+
 ## Локальный запуск
 
 ```powershell
@@ -88,18 +96,20 @@ Seed идемпотентно создаёт permissions, роли, пользо
 
 ## Тестовые пользователи
 
-| Роль              | Логин     | Email                   | Пароль по умолчанию |
-| ----------------- | --------- | ----------------------- | ------------------- |
-| ADMIN             | admin     | admin@example.local     | Admin123!           |
-| PROMOTER          | promoter  | promoter@example.local  | Demo123!            |
-| AD_OPERATOR       | operator  | operator@example.local  | Demo123!            |
-| MEASURER          | measurer  | measurer@example.local  | Demo123!            |
-| INSTALLER         | installer | installer@example.local | Demo123!            |
-| WAREHOUSE_MANAGER | warehouse | warehouse@example.local | Demo123!            |
-| FINANCE_MANAGER   | finance   | finance@example.local   | Demo123!            |
-| MANAGER           | manager   | manager@example.local   | Demo123!            |
+Вход выполняется по номеру телефона и паролю.
 
-Пароли берутся из SEED_ADMIN_PASSWORD и SEED_DEMO_PASSWORD.
+| Роль              | Телефон          | Пароль по умолчанию |
+| ----------------- | ---------------- | ------------------- |
+| ADMIN             | +7 999 000-00-01 | Adm001              |
+| PROMOTER          | +7 999 000-00-02 | Dem001              |
+| AD_OPERATOR       | +7 999 000-00-03 | Dem001              |
+| MEASURER          | +7 999 000-00-04 | Dem001              |
+| INSTALLER         | +7 999 000-00-05 | Dem001              |
+| WAREHOUSE_MANAGER | +7 999 000-00-06 | Dem001              |
+| FINANCE_MANAGER   | +7 999 000-00-07 | Dem001              |
+| MANAGER           | +7 999 000-00-08 | Dem001              |
+
+Пароли берутся из `SEED_ADMIN_PASSWORD` и `SEED_DEMO_PASSWORD`.
 
 ## Проверки
 
