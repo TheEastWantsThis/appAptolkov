@@ -11,9 +11,16 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatRussianPhoneInput, normalizePhone } from "@/shared/domain/phone";
 
 const loginFormSchema = z.object({
-  phone: z.string().trim().min(10, "Введите номер телефона").max(32),
+  phone: z.string().refine(
+    (value) => {
+      const normalized = normalizePhone(value);
+      return normalized.length === 11 && normalized.startsWith("7");
+    },
+    { message: "Введите номер телефона полностью" },
+  ),
   password: z.string().min(1, "Введите пароль").max(128),
 });
 
@@ -28,8 +35,9 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
-    defaultValues: { phone: "", password: "" },
+    defaultValues: { phone: "+7", password: "" },
   });
+  const phoneField = register("phone");
 
   async function onSubmit(values: LoginFormValues) {
     setServerError(null);
@@ -59,12 +67,17 @@ export function LoginForm() {
           <Input
             id="phone"
             type="tel"
-            inputMode="tel"
+            inputMode="numeric"
             autoComplete="tel"
+            maxLength={18}
             className="pl-10"
             aria-invalid={Boolean(errors.phone)}
-            placeholder="+7 999 123-45-67"
-            {...register("phone")}
+            placeholder="+7 (999) 123-45-67"
+            {...phoneField}
+            onChange={(event) => {
+              event.target.value = formatRussianPhoneInput(event.target.value);
+              void phoneField.onChange(event);
+            }}
           />
         </div>
         {errors.phone ? (
