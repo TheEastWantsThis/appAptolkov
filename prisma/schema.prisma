@@ -245,6 +245,7 @@ model User {
   stockMovements            StockMovement[]            @relation("StockMovementActor")
   stockReservations         StockReservation[]         @relation("StockReservationActor")
   purchaseOrders            PurchaseOrder[]            @relation("PurchaseOrderCreator")
+  announcements             Announcement[]             @relation("AnnouncementAuthor")
 
   @@index([isActive, archivedAt])
   @@index([loginLockedUntil])
@@ -1139,4 +1140,18 @@ model VerificationToken {
 
   @@id([identifier, token])
   @@map("verification_tokens")
+}
+
+
+model Announcement {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String   @db.VarChar(160)
+  content   String   @db.VarChar(2000)
+  authorId  String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt(sort: Desc)])
+  @@map("announcements")
 }

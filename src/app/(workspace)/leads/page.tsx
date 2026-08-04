@@ -46,7 +46,7 @@ export default async function LeadsPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Лиды"
+        title="Заявки"
         description={
           hasPermission(context.permissions, PERMISSIONS.LEAD_READ)
             ? "Очередь новых заявок и запланированных контактов"

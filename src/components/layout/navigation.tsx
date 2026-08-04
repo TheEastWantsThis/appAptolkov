@@ -36,6 +36,7 @@ interface NavigationItem {
   anyPermissions?: readonly PermissionCode[];
   mobile?: boolean;
   mobileOnly?: boolean;
+  primary?: boolean;
 }
 
 const ITEMS: readonly NavigationItem[] = [
@@ -45,6 +46,7 @@ const ITEMS: readonly NavigationItem[] = [
     icon: Home,
     permission: PERMISSIONS.DASHBOARD_READ,
     mobile: true,
+    primary: true,
   },
   {
     href: "/analytics",
@@ -58,10 +60,11 @@ const ITEMS: readonly NavigationItem[] = [
   },
   {
     href: "/leads",
-    label: "Лиды",
+    label: "Заявки",
     icon: Megaphone,
     anyPermissions: [PERMISSIONS.LEAD_OWN_READ, PERMISSIONS.LEAD_READ],
     mobile: true,
+    primary: true,
   },
   {
     href: "/projects",
@@ -77,6 +80,7 @@ const ITEMS: readonly NavigationItem[] = [
     permission: PERMISSIONS.DASHBOARD_READ,
     mobile: true,
     mobileOnly: true,
+    primary: true,
   },
   {
     href: "/installations",
@@ -171,7 +175,7 @@ export function DesktopSidebar({
   const pathname = usePathname();
   const visible = ITEMS.filter(
     (item) =>
-      !item.mobileOnly &&
+      item.primary &&
       (!item.permission || permissions.includes(item.permission)) &&
       (!item.anyPermissions ||
         item.anyPermissions.some((permission) =>
@@ -247,6 +251,7 @@ export function MobileBottomNavigation({
   const visible = ITEMS.filter(
     (item) =>
       item.mobile &&
+      item.primary &&
       (!item.permission || permissions.includes(item.permission)) &&
       (!item.anyPermissions ||
         item.anyPermissions.some((permission) =>

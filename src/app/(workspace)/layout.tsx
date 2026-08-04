@@ -33,9 +33,7 @@ export default async function WorkspaceLayout({
                 Рабочее пространство
               </div>
             </div>
-            <div className="text-muted-foreground hidden text-sm lg:block">
-              Внутренняя CRM/ERP · защищённый контур
-            </div>
+            <div className="hidden lg:block" aria-hidden="true" />
             <SignOutButton />
           </div>
         </header>
