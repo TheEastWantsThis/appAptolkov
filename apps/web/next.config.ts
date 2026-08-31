@@ -51,10 +51,17 @@ const contentSecurityPolicy =
     "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org",
   ].join("; ") + upgradePolicy;
 
+const standaloneOutput =
+  process.env.VERCEL === "1"
+    ? {}
+    : {
+        output: "standalone" as const,
+        outputFileTracingRoot: path.join(currentDirectory, "../.."),
+      };
+
 const nextConfig: NextConfig = {
+  ...standaloneOutput,
   agentRules: false,
-  output: "standalone",
-  outputFileTracingRoot: path.join(currentDirectory, "../.."),
   poweredByHeader: false,
   reactStrictMode: true,
   transpilePackages: ["@watchroom/shared"],
