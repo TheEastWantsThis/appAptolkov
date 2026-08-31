@@ -27,6 +27,7 @@ COPY --from=build --chown=node:node /workspace/node_modules node_modules
 COPY --from=build --chown=node:node /workspace/apps/api/node_modules apps/api/node_modules
 COPY --from=build --chown=node:node /workspace/apps/api/package.json apps/api/package.json
 COPY --from=build --chown=node:node /workspace/apps/api/dist apps/api/dist
+COPY --from=build --chown=node:node --chmod=755 /workspace/apps/api/docker-entrypoint.sh apps/api/docker-entrypoint.sh
 COPY --from=build --chown=node:node /workspace/packages/shared packages/shared
 COPY --from=build --chown=node:node /workspace/prisma prisma
 COPY --from=build --chown=node:node /workspace/prisma.config.ts prisma.config.ts
@@ -35,4 +36,4 @@ USER node
 EXPOSE 4000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget --quiet --output-document=- "http://127.0.0.1:${API_PORT:-4000}/health/live" || exit 1
-CMD ["node", "apps/api/dist/index.js"]
+CMD ["./apps/api/docker-entrypoint.sh"]

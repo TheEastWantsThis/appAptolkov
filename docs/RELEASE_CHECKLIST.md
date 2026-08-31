@@ -8,7 +8,7 @@
 - [x] Dependency audit не содержит известных high/critical уязвимостей.
 - [x] API и web Dockerfile запускаются под non-root `node`; файлы runtime принадлежат этому пользователю.
 - [x] Production env topology валидирует HTTPS app/API, WSS и Twitch parent hostname.
-- [x] Тестовый Render Blueprint фиксирует один API instance и health checks; на Free миграции выполняются идемпотентно перед стартом API. Graceful shutdown реализован приложением, но управляемая Render shutdown delay недоступна на Free.
+- [x] Тестовый Render Blueprint фиксирует один API instance и health checks; Linux entrypoint идемпотентно применяет миграции и затем запускает API. Graceful shutdown реализован приложением, но управляемая Render shutdown delay недоступна на Free.
 - [ ] Выполнить `render blueprints validate render.yaml --workspace <id>` в целевом workspace. Официальный CLI v2.25.0 скачан с проверкой release SHA-256, но локально запросил workspace, которого в окружении нет.
 - [ ] Собрать оба Docker image реальным Docker engine и проверить `docker inspect` (`Config.User=node`).
 - [ ] Создать release commit/tag в удалённом Git-репозитории с зелёным CI.
