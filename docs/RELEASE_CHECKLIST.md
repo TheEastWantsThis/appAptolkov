@@ -38,7 +38,7 @@ NEXT_PUBLIC_WS_URL=wss://api.example.com
 NEXT_PUBLIC_TWITCH_PARENT_DOMAINS=app.example.com
 ```
 
-Текущий Free test Blueprint использует фактические Vercel/Render URL `watchroom-miniapp.vercel.app` и `watchroom-api.onrender.com`; блок выше остаётся шаблоном для будущего собственного домена.
+Текущий Free test Blueprint использует фактические Vercel/Render URL `watchroom-miniapp.vercel.app` и `watchroom-api-e5sf.onrender.com`; блок выше остаётся шаблоном для будущего собственного домена.
 
 Секретное хранилище Render, никогда не Blueprint literal/build ARG/log:
 

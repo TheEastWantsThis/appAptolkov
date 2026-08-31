@@ -58,9 +58,9 @@ services:
       - key: WEB_ORIGIN
         value: https://watchroom-miniapp.vercel.app
       - key: API_URL
-        value: https://watchroom-api.onrender.com
+        value: https://watchroom-api-e5sf.onrender.com
       - key: WS_URL
-        value: wss://watchroom-api.onrender.com
+        value: wss://watchroom-api-e5sf.onrender.com
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
