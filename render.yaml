@@ -23,7 +23,6 @@ services:
     dockerContext: .
     dockerfilePath: ./apps/api/Dockerfile
     healthCheckPath: /health/ready
-    maxShutdownDelaySeconds: 30
     # preDeployCommand is not available on Render Free. With one API instance,
     # migrate deploy is safe and idempotent as part of the startup command.
     dockerCommand: sh -c 'node node_modules/prisma/build/index.js migrate deploy && node apps/api/dist/index.js'
