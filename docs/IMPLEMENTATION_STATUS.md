@@ -50,7 +50,7 @@
 - API/WSS: `https://watchroom-api-e5sf.onrender.com` — Render Free `Live`.
 - PostgreSQL 17: `watchroom-db` — Render Free `Available`; все 8 миграций применены.
 - `pnpm release:smoke`: PASS для web health, API liveness/readiness с database check, CSP и unauthenticated WSS boundary.
-- Production browser без Telegram initData корректно получает отказ; реальный Telegram launch ещё не подтверждён.
+- Production browser без Telegram initData корректно получает отказ. Bot identity зафиксирован как `@WatchRoomTogether_bot` с Mini App short name `watchroom`; реальный Telegram launch ещё не подтверждён.
 
 Ранее на изолированной PostgreSQL 17 успешно применены миграции 1–7 и прошёл реальный `test:postgres`: две Telegram identity, public/private room, Socket.IO deny/sync и 45 конкурентных сообщений с фактическим остатком 40. Тест расширен проверкой operations abuse workflow. Локальный повтор для миграции 8 не состоялся: Docker Desktop 4.88.1 падает до запуска engine на недоступном stale `sailor-ingest.sock`. CI workflow поднимает чистую PostgreSQL 17, выполняет все migrations и этот gate; до зелёного CI релиз запрещён.
 
@@ -64,8 +64,8 @@
 
 ## Что нужно от владельца для этапа 10
 
-1. Настроить Main Mini App/menu button и webhook для созданного Telegram-бота.
-2. Передать только несекретные bot username и Mini App short name для invite links; bot token остаётся в Render secret storage.
+1. Настроить Main Mini App/menu button с short name `watchroom` и webhook для `@WatchRoomTogether_bot`.
+2. Bot token продолжает храниться только в Render secret storage.
 3. Выполнить Telegram Android/iOS/Desktop и реальные YouTube/Twitch embed smoke.
 4. До реального хранения пользовательских данных перейти с истекающей Free DB либо явно принять её ограничения.
 
