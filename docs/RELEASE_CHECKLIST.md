@@ -38,13 +38,14 @@ NEXT_PUBLIC_WS_URL=wss://api.example.com
 NEXT_PUBLIC_TWITCH_PARENT_DOMAINS=app.example.com
 ```
 
+Текущий Free test Blueprint использует фактические Vercel/Render URL `watchroom-miniapp.vercel.app` и `watchroom-api.onrender.com`; блок выше остаётся шаблоном для будущего собственного домена.
+
 Секретное хранилище Render, никогда не Blueprint literal/build ARG/log:
 
 - [ ] `DATABASE_URL` — только `fromDatabase.connectionString`;
 - [ ] `TELEGRAM_BOT_TOKEN`;
-- [ ] `TELEGRAM_WEBHOOK_SECRET` — минимум 32 случайных символа;
-- [ ] `TWITCH_CLIENT_ID` и `TWITCH_CLIENT_SECRET`;
-- [ ] `YOUTUBE_API_KEY`;
+- [ ] `TELEGRAM_WEBHOOK_SECRET` — минимум 32 случайных символа, генерируется Render;
+- [ ] `TWITCH_CLIENT_ID`/`TWITCH_CLIENT_SECRET` и `YOUTUBE_API_KEY` добавить позже только для метаданных; embed и ручной `nowWatchingText` работают без них.
 - [ ] `METRICS_BEARER_TOKEN` — генерируется Render.
 - [ ] `OPERATIONS_BEARER_TOKEN` — отдельный случайный secret минимум 32 символа; не совпадает с metrics token.
 

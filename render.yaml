@@ -54,28 +54,18 @@ services:
           name: watchroom-db
           property: connectionString
       - key: PUBLIC_APP_URL
-        sync: false
+        value: https://watchroom-miniapp.vercel.app
       - key: WEB_ORIGIN
-        sync: false
+        value: https://watchroom-miniapp.vercel.app
       - key: API_URL
-        sync: false
+        value: https://watchroom-api.onrender.com
       - key: WS_URL
-        sync: false
+        value: wss://watchroom-api.onrender.com
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
-        sync: false
-      - key: TELEGRAM_BOT_USERNAME
-        sync: false
-      - key: TELEGRAM_APP_SHORT_NAME
-        sync: false
+        generateValue: true
       - key: METRICS_BEARER_TOKEN
         generateValue: true
       - key: OPERATIONS_BEARER_TOKEN
         generateValue: true
-      - key: YOUTUBE_API_KEY
-        sync: false
-      - key: TWITCH_CLIENT_ID
-        sync: false
-      - key: TWITCH_CLIENT_SECRET
-        sync: false
