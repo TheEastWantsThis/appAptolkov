@@ -1,0 +1,41 @@
+{
+  "name": "watchroom",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Telegram Mini App for synchronized YouTube and Twitch watch rooms",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "build": "pnpm db:generate && pnpm -r --if-present build",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "dev": "pnpm --filter @watchroom/shared build && pnpm --parallel --filter @watchroom/api --filter @watchroom/web dev",
+    "dev:down": "docker compose down",
+    "dev:infra": "docker compose up -d postgres",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . && prettier --check .",
+    "release:telegram": "node scripts/configure-telegram.mjs",
+    "release:smoke": "node apps/web/scripts/production-smoke.mjs",
+    "test": "pnpm --filter @watchroom/shared build && pnpm -r --if-present test",
+    "test:postgres": "pnpm --filter @watchroom/api test:postgres",
+    "test:e2e": "pnpm --filter @watchroom/web test:e2e",
+    "typecheck": "pnpm db:generate && pnpm --filter @watchroom/shared build && pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "24.13.3",
+    "dotenv": "17.2.3",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.3",
+    "prettier": "3.9.6",
+    "prisma": "7.10.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@watchroom/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/remove-dev-auth.mjs",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:postgres": "vitest run src/postgres-fullstack.integration.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.2",
+    "@fastify/cors": "11.3.0",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@watchroom/shared": "workspace:*",
+    "argon2": "0.44.0",
+    "fastify": "5.12.1",
+    "pg": "8.23.0",
+    "socket.io": "4.8.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "socket.io-client": "4.8.3",
+    "tsx": "4.23.12"
+  }
+}

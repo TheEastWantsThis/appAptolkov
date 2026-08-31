@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+previews:
+  generation: off
+
+databases:
+  - name: watchroom-db
+    region: frankfurt
+    plan: 0.1c-256mb
+    postgresMajorVersion: "17"
+    databaseName: watchroom
+    user: watchroom
+    ipAllowList: []
+
+services:
+  - type: web
+    name: watchroom-api
+    runtime: docker
+    region: frankfurt
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    dockerContext: .
+    dockerfilePath: ./apps/api/Dockerfile
+    healthCheckPath: /health/ready
+    maxShutdownDelaySeconds: 30
+    preDeployCommand: node node_modules/prisma/build/index.js migrate deploy
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - prisma/**
+        - prisma.config.ts
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - tsconfig.base.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: API_HOST
+        value: 0.0.0.0
+      - key: API_PORT
+        value: "10000"
+      - key: LOG_LEVEL
+        value: info
+      - key: MOCK_TELEGRAM_AUTH
+        value: "false"
+      - key: SHUTDOWN_TIMEOUT_MS
+        value: "25000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: watchroom-db
+          property: connectionString
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: WS_URL
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_APP_SHORT_NAME
+        sync: false
+      - key: METRICS_BEARER_TOKEN
+        generateValue: true
+      - key: OPERATIONS_BEARER_TOKEN
+        generateValue: true
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+
+  - type: web
+    name: watchroom-web
+    runtime: docker
+    region: frankfurt
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    dockerContext: .
+    dockerfilePath: ./apps/web/Dockerfile
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 30
+    buildFilter:
+      paths:
+        - apps/web/**
+        - packages/shared/**
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - tsconfig.base.json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: WATCHROOM_DEPLOYMENT
+        value: production
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_WS_URL
+        sync: false
+      - key: NEXT_PUBLIC_TWITCH_PARENT_DOMAINS
+        sync: false

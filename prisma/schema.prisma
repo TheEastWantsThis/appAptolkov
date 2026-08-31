@@ -1,0 +1,329 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../apps/api/src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum ChannelVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum ChannelRole {
+  OWNER
+  MODERATOR
+  MEMBER
+}
+
+enum RoomVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum RoomStatus {
+  DRAFT
+  WAITING
+  LIVE
+  ENDED
+}
+
+enum RoomControlPolicy {
+  OWNER_ONLY
+  MODERATORS
+  EVERYONE
+}
+
+enum SourceProvider {
+  YOUTUBE
+  TWITCH
+}
+
+enum SourceKind {
+  VIDEO
+  VOD
+  LIVE
+}
+
+enum RoomRole {
+  OWNER
+  MODERATOR
+  VIEWER
+}
+
+model User {
+  id                          String                       @id @default(uuid()) @db.Uuid
+  telegramId                  BigInt                       @unique
+  username                    String?                      @db.VarChar(32)
+  firstName                   String                       @db.VarChar(64)
+  lastName                    String?                      @db.VarChar(64)
+  photoUrl                    String?                      @db.VarChar(2048)
+  status                      UserStatus                   @default(ACTIVE)
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  lastSeenAt                  DateTime                     @default(now())
+  sessions                    Session[]
+  channels                    Channel[]                    @relation("ChannelOwner")
+  memberships                 ChannelMember[]
+  roomsOwned                  Room[]                       @relation("RoomOwner")
+  roomMemberships             RoomMember[]
+  roomAccessGrants            RoomAccessGrant[]
+  roomMessages                RoomMessage[]
+  roomChatRestrictions        RoomChatRestriction[]        @relation("RestrictedUser")
+  roomChatRestrictionsCreated RoomChatRestriction[]        @relation("RestrictionModerator")
+  roomModerationActions       RoomModerationAudit[]        @relation("ModerationActor")
+  roomModerationTargets       RoomModerationAudit[]        @relation("ModerationTarget")
+  telegramBindingRequests     TelegramChatBindingRequest[]
+  roomBlocksReceived          RoomUserBlock[]              @relation("BlockedRoomUser")
+  roomBlocksCreated           RoomUserBlock[]              @relation("RoomBlockActor")
+  abuseReportsCreated         AbuseReport[]                @relation("AbuseReporter")
+  abuseReportsReceived        AbuseReport[]                @relation("AbuseTarget")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  tokenHash        String    @unique @db.Char(64)
+  csrfTokenHash    String    @db.Char(64)
+  userId           String    @db.Uuid
+  expiresAt        DateTime
+  lastSeenAt       DateTime  @default(now())
+  revokedAt        DateTime?
+  telegramAuthDate DateTime
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model AuthReplay {
+  digest    String   @id @db.Char(64)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+model Channel {
+  id          String            @id @default(uuid()) @db.Uuid
+  publicId    String            @unique @db.VarChar(24)
+  slug        String            @unique @db.VarChar(48)
+  ownerId     String            @db.Uuid
+  name        String            @db.VarChar(80)
+  description String            @default("") @db.VarChar(500)
+  avatarUrl   String?           @db.VarChar(2048)
+  visibility  ChannelVisibility @default(PUBLIC)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  owner       User              @relation("ChannelOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     ChannelMember[]
+  rooms       Room[]
+
+  @@index([ownerId])
+}
+
+model Room {
+  id                         String                       @id @default(uuid()) @db.Uuid
+  publicId                   String                       @unique @db.VarChar(24)
+  channelId                  String                       @db.Uuid
+  ownerId                    String                       @db.Uuid
+  name                       String                       @db.VarChar(80)
+  description                String                       @default("") @db.VarChar(240)
+  visibility                 RoomVisibility               @default(PUBLIC)
+  passwordHash               String?                      @db.VarChar(255)
+  passwordRevision           Int                          @default(1)
+  status                     RoomStatus                   @default(DRAFT)
+  controlPolicy              RoomControlPolicy            @default(OWNER_ONLY)
+  sourceProvider             SourceProvider
+  sourceKind                 SourceKind
+  sourceId                   String                       @db.VarChar(128)
+  canonicalUrl               String                       @db.VarChar(2048)
+  cachedTitle                String?                      @db.VarChar(200)
+  cachedThumbnailUrl         String?                      @db.VarChar(2048)
+  cachedCreatorName          String?                      @db.VarChar(120)
+  cachedLiveStatus           String?                      @db.VarChar(16)
+  cachedEmbeddable           Boolean?
+  metadataFetchedAt          DateTime?
+  nowWatchingText            String                       @default("") @db.VarChar(120)
+  reactionsEnabled           Boolean                      @default(true)
+  playbackPaused             Boolean                      @default(true)
+  playbackState              String                       @default("PAUSED") @db.VarChar(16)
+  playbackPositionSeconds    Float                        @default(0)
+  playbackRate               Float                        @default(1)
+  playbackVersion            Int                          @default(0)
+  playbackUpdatedAt          DateTime                     @default(now())
+  playbackActorUserId        String?                      @db.Uuid
+  playbackLiveEdge           Boolean                      @default(false)
+  linkedTelegramChatId       BigInt?
+  linkedTelegramChatUsername String?                      @db.VarChar(32)
+  linkedTelegramChatUrl      String?                      @db.VarChar(2048)
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  startedAt                  DateTime?
+  endedAt                    DateTime?
+  channel                    Channel                      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  owner                      User                         @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members                    RoomMember[]
+  accessGrants               RoomAccessGrant[]
+  messages                   RoomMessage[]
+  chatRestrictions           RoomChatRestriction[]
+  moderationAudit            RoomModerationAudit[]
+  telegramBindingRequests    TelegramChatBindingRequest[]
+  userBlocks                 RoomUserBlock[]
+  abuseReports               AbuseReport[]
+
+  @@index([visibility, status, updatedAt, id])
+  @@index([channelId, status, updatedAt, id])
+  @@index([ownerId])
+  @@index([metadataFetchedAt])
+}
+
+model RoomMember {
+  roomId    String   @db.Uuid
+  userId    String   @db.Uuid
+  role      RoomRole @default(VIEWER)
+  createdAt DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([roomId, userId])
+  @@index([userId])
+  @@index([roomId, lastSeenAt, userId])
+}
+
+model RoomAccessGrant {
+  id               String   @id @default(uuid()) @db.Uuid
+  tokenHash        String   @unique @db.Char(64)
+  roomId           String   @db.Uuid
+  userId           String   @db.Uuid
+  passwordRevision Int
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+  room             Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model RoomMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  roomId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  text      String   @db.VarChar(500)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt, id])
+  @@index([expiresAt])
+}
+
+model RoomChatRestriction {
+  id         String   @id @default(uuid()) @db.Uuid
+  roomId     String   @db.Uuid
+  userId     String   @db.Uuid
+  mutedById  String   @db.Uuid
+  reason     String?  @db.VarChar(240)
+  mutedUntil DateTime
+  createdAt  DateTime @default(now())
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user       User     @relation("RestrictedUser", fields: [userId], references: [id], onDelete: Cascade)
+  mutedBy    User     @relation("RestrictionModerator", fields: [mutedById], references: [id], onDelete: Cascade)
+
+  @@index([roomId, userId, mutedUntil])
+  @@index([mutedUntil])
+}
+
+model RoomModerationAudit {
+  id              String    @id @default(uuid()) @db.Uuid
+  roomId          String    @db.Uuid
+  actorUserId     String    @db.Uuid
+  targetUserId    String?   @db.Uuid
+  targetMessageId String?   @db.Uuid
+  action          String    @db.VarChar(40)
+  mutedUntil      DateTime?
+  createdAt       DateTime  @default(now())
+  expiresAt       DateTime
+  room            Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  actor           User      @relation("ModerationActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  target          User?     @relation("ModerationTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, createdAt, id])
+  @@index([expiresAt])
+}
+
+model TelegramChatBindingRequest {
+  id               String    @id @default(uuid()) @db.Uuid
+  roomId           String    @db.Uuid
+  requestedById    String    @db.Uuid
+  telegramUserId   BigInt
+  requestId        Int       @unique
+  preparedButtonId String    @db.VarChar(256)
+  status           String    @default("PENDING") @db.VarChar(16)
+  message          String?   @db.VarChar(240)
+  expiresAt        DateTime
+  consumedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  room             Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  requestedBy      User      @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@index([roomId, requestedById, createdAt])
+  @@index([expiresAt, status])
+}
+
+model RoomUserBlock {
+  roomId      String   @db.Uuid
+  userId      String   @db.Uuid
+  blockedById String   @db.Uuid
+  reason      String?  @db.VarChar(240)
+  createdAt   DateTime @default(now())
+  room        Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user        User     @relation("BlockedRoomUser", fields: [userId], references: [id], onDelete: Cascade)
+  blockedBy   User     @relation("RoomBlockActor", fields: [blockedById], references: [id], onDelete: Cascade)
+
+  @@id([roomId, userId])
+  @@index([userId])
+}
+
+model AbuseReport {
+  id           String   @id @default(uuid()) @db.Uuid
+  roomId       String   @db.Uuid
+  reporterId   String   @db.Uuid
+  targetUserId String?  @db.Uuid
+  category     String   @db.VarChar(32)
+  details      String?  @db.VarChar(500)
+  status       String   @default("OPEN") @db.VarChar(16)
+  resolution   String?  @db.VarChar(240)
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  room         Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  reporter     User     @relation("AbuseReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  target       User?    @relation("AbuseTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([roomId, createdAt])
+  @@index([reporterId, createdAt])
+  @@index([status, createdAt, id])
+  @@index([expiresAt])
+}
+
+model ChannelMember {
+  channelId String      @db.Uuid
+  userId    String      @db.Uuid
+  role      ChannelRole
+  createdAt DateTime    @default(now())
+  channel   Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([channelId, userId])
+  @@index([userId])
+}
