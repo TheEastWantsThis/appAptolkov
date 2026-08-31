@@ -1,6 +1,6 @@
 # WatchRoom — checklist развёртывания закрытого MVP
 
-Статус на 31 августа 2026 года: **release package подготовлен, внешний деплой не выполнен**. В локальном окружении отсутствуют Git remote, Render CLI/API key, production-домены и секреты; Docker Desktop engine остановлен. Нельзя считать пункты после «Создание ресурсов» пройденными до фактических URL и smoke-результатов.
+Статус на 31 августа 2026 года: **начат внешний деплой закрытого теста**. Репозиторий связан с Vercel; web-проект переименован в `watchroom-miniapp`, Root Directory установлен в `apps/web`, а старая команда Prisma-миграций удалена из Vercel. API/PostgreSQL ещё не созданы в Render, production URL и smoke-результатов пока нет.
 
 ## 1. Release gate
 
@@ -8,16 +8,16 @@
 - [x] Dependency audit не содержит известных high/critical уязвимостей.
 - [x] API и web Dockerfile запускаются под non-root `node`; файлы runtime принадлежат этому пользователю.
 - [x] Production env topology валидирует HTTPS app/API, WSS и Twitch parent hostname.
-- [x] Render Blueprint фиксирует один API instance, health checks, 30-second shutdown и отдельный `preDeployCommand` миграций.
+- [x] Тестовый Render Blueprint фиксирует один API instance, health checks и 30-second shutdown; на Free миграции выполняются идемпотентно перед стартом API.
 - [ ] Выполнить `render blueprints validate render.yaml --workspace <id>` в целевом workspace. Официальный CLI v2.25.0 скачан с проверкой release SHA-256, но локально запросил workspace, которого в окружении нет.
 - [ ] Собрать оба Docker image реальным Docker engine и проверить `docker inspect` (`Config.User=node`).
 - [ ] Создать release commit/tag в удалённом Git-репозитории с зелёным CI.
 
 ## 2. Render и домены
 
-Render Web Service выбран потому, что официально принимает inbound WebSocket и не задаёт фиксированную максимальную длительность соединения. Инстанс всё равно заменяется при deploy/maintenance, поэтому reconnect обязателен. API остаётся в одном always-on `0.5c-512mb` instance; free plan для закрытого теста не используется. [Render WebSockets](https://render.com/docs/websocket), [Render Web Services](https://render.com/docs/web-services).
+Render Web Service выбран потому, что официально принимает inbound WebSocket и не задаёт фиксированную максимальную длительность соединения. Инстанс всё равно заменяется при deploy/maintenance, поэтому reconnect обязателен. Для первого закрытого теста Blueprint использует один Free API instance и Free PostgreSQL; web размещается на Vercel. Free API засыпает после периода бездействия, а Free PostgreSQL истекает через 30 дней и не имеет backup/PITR. Это временный тестовый режим, не production SLA. [Render WebSockets](https://render.com/docs/websocket), [Free instances](https://render.com/docs/free), [Render Web Services](https://render.com/docs/web-services).
 
-- [ ] В Render связать репозиторий и применить `render.yaml`; подтвердить платные планы до создания ресурсов.
+- [ ] В Render связать репозиторий и применить `render.yaml`; выбрать Free ресурсы без платной подписки.
 - [ ] Создать `watchroom-db` PostgreSQL 17 в Frankfurt; убедиться, что public DB allowlist пуст.
 - [ ] Назначить два домена одного registrable site, например `app.example.com` и `api.example.com`.
 - [ ] Дождаться TLS; HTTP должен перенаправляться на HTTPS. Render выпускает и обновляет сертификаты автоматически. [Custom domains](https://render.com/docs/custom-domains), [TLS](https://render.com/docs/tls).
@@ -55,7 +55,7 @@ NEXT_PUBLIC_TWITCH_PARENT_DOMAINS=app.example.com
 ## 4. Миграции и deploy
 
 - [ ] Перед deploy создать backup/PITR checkpoint.
-- [ ] Render API `preDeployCommand` выполняет `prisma migrate deploy` после build и до запуска новой версии; seed в production запрещён.
+- [ ] На Free API startup command выполняет `prisma migrate deploy` до запуска процесса; команда идемпотентна, instance только один, seed запрещён.
 - [ ] Проверить event log: migration exit code 0, затем `/health/ready` 200.
 - [ ] Проверить, что Render переключил трафик только после health success. [Health checks](https://render.com/docs/health-checks).
 - [ ] Проверить graceful deploy: соединённый клиент получает disconnect, переподключается и получает свежий room snapshot.
@@ -85,7 +85,7 @@ Main Mini App настраивается через `@BotFather`; Bot API офи
 
 ## 7. Backup и rollback
 
-- [ ] Использовать paid Render Postgres с PITR; выполнить первый logical export и тестовое восстановление в новую БД. [Render Postgres backups](https://render.com/docs/postgresql-backups).
+- [ ] До приглашения пользователей либо перейти на paid Render Postgres с PITR, либо явно принять 30-дневный срок и отсутствие backup у Free DB; пользовательские данные Free DB нельзя считать долговечными. [Render Postgres backups](https://render.com/docs/postgresql-backups).
 - [ ] Зафиксировать фактические RPO/RTO и ответственного.
 - [ ] Для application rollback: остановить autodeploy, выбрать последний успешный build artifact на Render Events → Rollback, затем повторить smoke. Rollback не откатывает БД. [Render rollbacks](https://render.com/docs/rollbacks).
 - [ ] При несовместимой миграции не выполнять ручной down в основной БД: восстановить новую БД через PITR/export, проверить её и только затем переключить `DATABASE_URL`.

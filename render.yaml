@@ -5,7 +5,8 @@ previews:
 databases:
   - name: watchroom-db
     region: frankfurt
-    plan: 0.1c-256mb
+    # Temporary closed-test profile. Upgrade before the database expires.
+    plan: free
     postgresMajorVersion: "17"
     databaseName: watchroom
     user: watchroom
@@ -16,14 +17,16 @@ services:
     name: watchroom-api
     runtime: docker
     region: frankfurt
-    plan: 0.5c-512mb
+    plan: free
     numInstances: 1
     autoDeployTrigger: checksPass
     dockerContext: .
     dockerfilePath: ./apps/api/Dockerfile
     healthCheckPath: /health/ready
     maxShutdownDelaySeconds: 30
-    preDeployCommand: node node_modules/prisma/build/index.js migrate deploy
+    # preDeployCommand is not available on Render Free. With one API instance,
+    # migrate deploy is safe and idempotent as part of the startup command.
+    dockerCommand: sh -c 'node node_modules/prisma/build/index.js migrate deploy && node apps/api/dist/index.js'
     buildFilter:
       paths:
         - apps/api/**
@@ -76,41 +79,4 @@ services:
       - key: TWITCH_CLIENT_ID
         sync: false
       - key: TWITCH_CLIENT_SECRET
-        sync: false
-
-  - type: web
-    name: watchroom-web
-    runtime: docker
-    region: frankfurt
-    plan: 0.5c-512mb
-    numInstances: 1
-    autoDeployTrigger: checksPass
-    dockerContext: .
-    dockerfilePath: ./apps/web/Dockerfile
-    healthCheckPath: /health
-    maxShutdownDelaySeconds: 30
-    buildFilter:
-      paths:
-        - apps/web/**
-        - packages/shared/**
-        - package.json
-        - pnpm-lock.yaml
-        - pnpm-workspace.yaml
-        - tsconfig.base.json
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: "10000"
-      - key: HOSTNAME
-        value: 0.0.0.0
-      - key: WATCHROOM_DEPLOYMENT
-        value: production
-      - key: NEXT_PUBLIC_APP_URL
-        sync: false
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-      - key: NEXT_PUBLIC_WS_URL
-        sync: false
-      - key: NEXT_PUBLIC_TWITCH_PARENT_DOMAINS
         sync: false

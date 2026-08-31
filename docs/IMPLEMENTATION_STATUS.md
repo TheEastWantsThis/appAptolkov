@@ -4,19 +4,19 @@
 
 ## Этапы 1–10 и финальный аудит
 
-| Этап                                    | Статус                   | Подтверждение / остаток                                                                                                                              |
-| --------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Исследование и проект                | Завершён                 | PRODUCT/ARCHITECTURE/PLATFORM_LIMITS/SECURITY, ADR и план основаны на официальных источниках.                                                        |
-| 2. Monorepo и локальная среда           | Завершён                 | strict TypeScript, pnpm lockfile, web/api/shared, PostgreSQL Compose, health, Dockerfiles, CI.                                                       |
-| 3. Telegram auth, users, channels       | Завершён                 | HMAC/freshness/replay/session/CSRF; Channel CRUD и owner/moderator/member API/UI/tests.                                                              |
-| 4. Rooms, access, roles, invites        | Завершён                 | PUBLIC/PRIVATE, Argon2id/grants/rate limit, lifecycle, capability matrix, preview/catalog/deep links.                                                |
-| 5. YouTube/Twitch adapters              | Завершён в коде          | Official SDK, parser/allowlist, metadata cache, autoplay/error/capability UX. Реальные provider smoke остаются release gate.                         |
-| 6. Realtime/presence/chat core          | Завершён                 | Authoritative Socket.IO state, CAS/drift/dedupe, heartbeat/grace, transactional 40/24h chat и 100-connection smoke.                                  |
-| 7. Room UI/player                       | Завершён в коде          | Mobile room states, roles/reactions/chat/owner controls, stable player, sticky rules, PiP detection, accessibility. Device QA остаётся release gate. |
-| 8. Ограниченный чат/Telegram discussion | Завершён в коде          | Moderation/audit, requestChat binding, reactions/system events, shareMessage/switchInlineQuery/fallbacks. Native client smoke остаётся.              |
-| 9. Hardening                            | Завершён локально        | Authorization/origin/CSRF/rate limits/CSP/headers/privacy/metrics/abuse queue/retention/audit; Critical/High не открыты.                             |
-| 10. Deploy closed MVP                   | Подготовлен, не выполнен | Render Blueprint, images, migrations release step, Telegram/smoke scripts, backup/rollback docs готовы; нет owner access/domain/secrets.             |
-| Финальный аудит                         | Завершён                 | Актуальный вывод и P0/P1/P2 находятся в `FINAL_AUDIT.md`.                                                                                            |
+| Этап                                    | Статус            | Подтверждение / остаток                                                                                                                                            |
+| --------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. Исследование и проект                | Завершён          | PRODUCT/ARCHITECTURE/PLATFORM_LIMITS/SECURITY, ADR и план основаны на официальных источниках.                                                                      |
+| 2. Monorepo и локальная среда           | Завершён          | strict TypeScript, pnpm lockfile, web/api/shared, PostgreSQL Compose, health, Dockerfiles, CI.                                                                     |
+| 3. Telegram auth, users, channels       | Завершён          | HMAC/freshness/replay/session/CSRF; Channel CRUD и owner/moderator/member API/UI/tests.                                                                            |
+| 4. Rooms, access, roles, invites        | Завершён          | PUBLIC/PRIVATE, Argon2id/grants/rate limit, lifecycle, capability matrix, preview/catalog/deep links.                                                              |
+| 5. YouTube/Twitch adapters              | Завершён в коде   | Official SDK, parser/allowlist, metadata cache, autoplay/error/capability UX. Реальные provider smoke остаются release gate.                                       |
+| 6. Realtime/presence/chat core          | Завершён          | Authoritative Socket.IO state, CAS/drift/dedupe, heartbeat/grace, transactional 40/24h chat и 100-connection smoke.                                                |
+| 7. Room UI/player                       | Завершён в коде   | Mobile room states, roles/reactions/chat/owner controls, stable player, sticky rules, PiP detection, accessibility. Device QA остаётся release gate.               |
+| 8. Ограниченный чат/Telegram discussion | Завершён в коде   | Moderation/audit, requestChat binding, reactions/system events, shareMessage/switchInlineQuery/fallbacks. Native client smoke остаётся.                            |
+| 9. Hardening                            | Завершён локально | Authorization/origin/CSRF/rate limits/CSP/headers/privacy/metrics/abuse queue/retention/audit; Critical/High не открыты.                                           |
+| 10. Deploy closed MVP                   | Выполняется       | Git/Vercel подключены и безопасно перенастроены под web; Render Free API/PostgreSQL Blueprint подготовлен. Нужны Render login/resources, secrets и реальные smoke. |
+| Финальный аудит                         | Завершён          | Актуальный вывод и P0/P1/P2 находятся в `FINAL_AUDIT.md`.                                                                                                          |
 
 ## Последние закрытые дефекты
 
@@ -56,7 +56,7 @@
 
 ## Что нужно от владельца для этапа 10
 
-1. Git/Render workspace и production domains.
+1. Войти в Render и создать Free API/PostgreSQL из Blueprint.
 2. Secrets через secret storage: bot token, webhook secret, operations/metrics tokens, database URL, Twitch credentials и YouTube key.
 3. Тестовые Telegram accounts/devices Android, iOS и Desktop.
 4. Решение по стране оператора/hosting и privacy/abuse contact.
@@ -65,4 +65,4 @@
 
 ## Текущее решение
 
-**NOT READY для внешнего закрытого теста.** Локальный release candidate готов; блокеры теперь относятся к production-доступу и внешним доказательствам, а не к заявленным core-функциям.
+**NOT READY для внешнего закрытого теста.** Git/Vercel подготовлены, но до Render API/PostgreSQL, согласованных URL/secrets и реальных smoke приглашать пользователей нельзя.
