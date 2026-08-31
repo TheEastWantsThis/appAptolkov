@@ -1,6 +1,6 @@
 # WatchRoom — checklist развёртывания закрытого MVP
 
-Статус на 31 августа 2026 года: **начат внешний деплой закрытого теста**. Репозиторий связан с Vercel; web-проект переименован в `watchroom-miniapp`, Root Directory установлен в `apps/web`, а старая команда Prisma-миграций удалена из Vercel. API/PostgreSQL ещё не созданы в Render, production URL и smoke-результатов пока нет.
+Статус на 1 сентября 2026 года: **сетевая часть закрытого теста развёрнута**. Web работает на Vercel, API/WSS и PostgreSQL 17 — на Render Free. Все миграции и network smoke прошли; Telegram и реальные provider/device smoke ещё не завершены.
 
 ## 1. Release gate
 
@@ -17,8 +17,8 @@
 
 Render Web Service выбран потому, что официально принимает inbound WebSocket и не задаёт фиксированную максимальную длительность соединения. Инстанс всё равно заменяется при deploy/maintenance, поэтому reconnect обязателен. Для первого закрытого теста Blueprint использует один Free API instance и Free PostgreSQL; web размещается на Vercel. Free API засыпает после периода бездействия, а Free PostgreSQL истекает через 30 дней и не имеет backup/PITR. Это временный тестовый режим, не production SLA. [Render WebSockets](https://render.com/docs/websocket), [Free instances](https://render.com/docs/free), [Render Web Services](https://render.com/docs/web-services).
 
-- [ ] В Render связать репозиторий и применить `render.yaml`; выбрать Free ресурсы без платной подписки.
-- [ ] Создать `watchroom-db` PostgreSQL 17 в Frankfurt; убедиться, что public DB allowlist пуст.
+- [x] В Render связан публичный GitHub-репозиторий и применён `render.yaml`; созданы только Free ресурсы.
+- [x] Создан `watchroom-db` PostgreSQL 17 в Frankfurt; Blueprint оставляет public DB allowlist пустым.
 - [ ] Назначить два домена одного registrable site, например `app.example.com` и `api.example.com`.
 - [ ] Дождаться TLS; HTTP должен перенаправляться на HTTPS. Render выпускает и обновляет сертификаты автоматически. [Custom domains](https://render.com/docs/custom-domains), [TLS](https://render.com/docs/tls).
 - [ ] Не включать второй API instance: in-memory presence/rate/dedupe ещё не распределены.
@@ -56,8 +56,8 @@ NEXT_PUBLIC_TWITCH_PARENT_DOMAINS=app.example.com
 ## 4. Миграции и deploy
 
 - [ ] Перед deploy создать backup/PITR checkpoint.
-- [ ] На Free API startup command выполняет `prisma migrate deploy` до запуска процесса; команда идемпотентна, instance только один, seed запрещён.
-- [ ] Проверить event log: migration exit code 0, затем `/health/ready` 200.
+- [x] Linux entrypoint выполняет `prisma migrate deploy` до запуска API; instance один, seed не запускался.
+- [x] Event log подтвердил 8 применённых миграций; `/health/ready` вернул 200 с database check.
 - [ ] Проверить, что Render переключил трафик только после health success. [Health checks](https://render.com/docs/health-checks).
 - [ ] Проверить graceful deploy: соединённый клиент получает disconnect, переподключается и получает свежий room snapshot.
 
@@ -76,9 +76,9 @@ Main Mini App настраивается через `@BotFather`; Bot API офи
 
 ## 6. Production smoke
 
-- [ ] Запустить `pnpm release:smoke` с `PUBLIC_APP_URL`, `API_URL`, `WS_URL` и без session cookie: WSS должен достичь authenticated boundary.
+- [x] `pnpm release:smoke` без session cookie: web/API/CSP PASS, WSS достиг authenticated boundary.
 - [ ] Повторить с временным `SMOKE_SESSION_COOKIE` из отдельного тестового аккаунта: Socket.IO connection должен установиться. Не сохранять cookie в shell history/log.
-- [ ] Проверить web `/health`, API `/health/live`, `/health/ready`, CSP, HTTPS redirect и WSS.
+- [x] Проверены web `/health`, API `/health/live`, `/health/ready`, CSP, HTTPS и WSS boundary.
 - [ ] Создать тестовую комнату и передать `SMOKE_ROOM_PUBLIC_ID`; проверить preview без утечки PRIVATE metadata.
 - [ ] Запустить официальный YouTube VOD embed на production domain.
 - [ ] Проверить YouTube Live, Twitch channel live, Twitch VOD и корректный Twitch `parent=app.example.com` вручную.
