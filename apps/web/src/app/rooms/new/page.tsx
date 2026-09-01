@@ -1,6 +1,6 @@
 "use client";
 
-import type { RoomDto } from "@watchroom/shared";
+import { parsePlayerSource, type PlayerSource, type RoomDto } from "@watchroom/shared";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
@@ -18,16 +18,32 @@ export default function NewRoomPage() {
   const [controlPolicy, setControlPolicy] = useState("OWNER_ONLY");
   const [sourceProvider, setSourceProvider] = useState<"YOUTUBE" | "TWITCH">("YOUTUBE");
   const [sourceKind, setSourceKind] = useState<"VIDEO" | "VOD" | "LIVE">("VIDEO");
-  const [sourceId, setSourceId] = useState("");
-  const [canonicalUrl, setCanonicalUrl] = useState("");
+  const [sourceInput, setSourceInput] = useState("");
   const [nowWatchingText, setNowWatchingText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    setSaving(true);
     setError(null);
+    let source: PlayerSource;
+    try {
+      source = parsePlayerSource({
+        provider: sourceProvider,
+        kind: sourceKind,
+        input: sourceInput,
+      });
+    } catch {
+      const expected =
+        sourceProvider === "YOUTUBE"
+          ? "Вставьте ссылку YouTube вида https://www.youtube.com/watch?v=… или ID видео из 11 символов."
+          : sourceKind === "LIVE"
+            ? "Вставьте ссылку на Twitch-канал вида https://www.twitch.tv/channel или имя канала."
+            : "Вставьте ссылку Twitch VOD вида https://www.twitch.tv/videos/123456789 или номер видео.";
+      setError(expected);
+      return;
+    }
+    setSaving(true);
     try {
       const response = await request<{ room: RoomDto }>("/v1/rooms", {
         method: "POST",
@@ -38,10 +54,10 @@ export default function NewRoomPage() {
           visibility,
           ...(visibility === "PRIVATE" ? { password } : {}),
           controlPolicy,
-          sourceProvider,
-          sourceKind,
-          sourceId,
-          canonicalUrl,
+          sourceProvider: source.provider,
+          sourceKind: source.kind,
+          sourceId: source.sourceId,
+          canonicalUrl: source.canonicalUrl,
           nowWatchingText,
         }),
       });
@@ -76,7 +92,7 @@ export default function NewRoomPage() {
             />
           </label>
           <label>
-            Короткое описание
+            Короткое описание (необязательно)
             <textarea
               maxLength={240}
               rows={3}
@@ -149,27 +165,30 @@ export default function NewRoomPage() {
             </label>
           </div>
           <label>
-            ID видео или канала
+            Ссылка на видео или трансляцию
             <input
               required
-              maxLength={128}
-              value={sourceId}
-              onChange={(event) => setSourceId(event.target.value)}
-            />
-          </label>
-          <label>
-            Каноническая HTTPS-ссылка
-            <input
-              required
-              type="url"
               inputMode="url"
-              placeholder="https://…"
-              value={canonicalUrl}
-              onChange={(event) => setCanonicalUrl(event.target.value)}
+              maxLength={2048}
+              placeholder={
+                sourceProvider === "YOUTUBE"
+                  ? "https://www.youtube.com/watch?v=…"
+                  : sourceKind === "LIVE"
+                    ? "https://www.twitch.tv/channel"
+                    : "https://www.twitch.tv/videos/123456789"
+              }
+              value={sourceInput}
+              onChange={(event) => {
+                setSourceInput(event.target.value);
+                setError(null);
+              }}
             />
+            <span className="muted">
+              Отдельный ID вводить не нужно — WatchRoom извлечёт его из ссылки автоматически.
+            </span>
           </label>
           <label>
-            Сейчас смотрят
+            Сейчас смотрят (необязательно)
             <input
               maxLength={120}
               placeholder="Финал сезона без спойлеров"
@@ -177,7 +196,11 @@ export default function NewRoomPage() {
               onChange={(event) => setNowWatchingText(event.target.value)}
             />
           </label>
-          {error ? <p className="error-text">{error}</p> : null}
+          {error ? (
+            <p className="error-text" role="alert">
+              {error}
+            </p>
+          ) : null}
           <button className="primary-button" type="submit" disabled={saving || !channelId}>
             {saving ? "Создаём…" : "Создать комнату"}
           </button>

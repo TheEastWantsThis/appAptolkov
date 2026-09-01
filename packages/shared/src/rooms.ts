@@ -20,8 +20,8 @@ export const RoomCapabilitySchema = z.enum([
 const HttpsUrlSchema = z.string().url().startsWith("https://").max(2048);
 const PasswordSchema = z
   .string()
-  .min(8)
-  .max(128)
+  .min(8, "Пароль должен содержать минимум 8 символов")
+  .max(128, "Пароль не должен превышать 128 символов")
   .refine(
     (value) => new TextEncoder().encode(value).byteLength <= 128,
     "Пароль не должен превышать 128 байт в UTF-8",
@@ -29,9 +29,18 @@ const PasswordSchema = z
 
 export const CreateRoomSchema = z
   .object({
-    channelId: z.string().uuid(),
-    name: z.string().trim().min(2).max(80),
-    description: z.string().trim().max(240).default(""),
+    channelId: z.string().uuid("Не удалось определить внутренний канал"),
+    name: z
+      .string()
+      .trim()
+      .min(2, "Название должно содержать минимум 2 символа")
+      .max(80, "Название не должно превышать 80 символов"),
+    description: z
+      .string()
+      .trim()
+      .max(240, "Описание не должно превышать 240 символов")
+      .optional()
+      .default(""),
     visibility: RoomVisibilitySchema.default("PUBLIC"),
     password: PasswordSchema.optional(),
     controlPolicy: RoomControlPolicySchema.default("OWNER_ONLY"),
@@ -39,7 +48,12 @@ export const CreateRoomSchema = z
     sourceKind: SourceKindSchema,
     sourceId: z.string().trim().min(1).max(128),
     canonicalUrl: HttpsUrlSchema,
-    nowWatchingText: z.string().trim().max(120).default(""),
+    nowWatchingText: z
+      .string()
+      .trim()
+      .max(120, "Строка «Сейчас смотрят» не должна превышать 120 символов")
+      .optional()
+      .default(""),
     reactionsEnabled: z.boolean().default(true),
   })
   .superRefine((value, context) => {

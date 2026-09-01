@@ -11,6 +11,7 @@ import {
 
 describe("YouTube source parser", () => {
   it.each([
+    "https://www.youtube.com/watch?v=2BOc5wfqfyo",
     "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=12",
     "https://youtu.be/dQw4w9WgXcQ?si=abc",
     "https://www.youtube.com/shorts/dQw4w9WgXcQ",
@@ -18,10 +19,11 @@ describe("YouTube source parser", () => {
     "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
     "dQw4w9WgXcQ",
   ])("normalizes %s", (input) => {
+    const expectedId = input.includes("2BOc5wfqfyo") ? "2BOc5wfqfyo" : "dQw4w9WgXcQ";
     expect(parseYouTubeSource(input)).toMatchObject({
       provider: "YOUTUBE",
-      sourceId: "dQw4w9WgXcQ",
-      canonicalUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      sourceId: expectedId,
+      canonicalUrl: `https://www.youtube.com/watch?v=${expectedId}`,
     });
   });
 
