@@ -1624,7 +1624,12 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
       return reply.code(400).send({
         error: {
           code: "VALIDATION_ERROR",
-          message: "Проверьте заполненные поля.",
+          message: error.issues
+            .map((issue) => {
+              const field = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+              return `${field}${issue.message}`;
+            })
+            .join("; "),
           requestId: request.id,
           details: error.issues,
         },

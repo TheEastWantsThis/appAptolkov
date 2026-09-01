@@ -376,6 +376,16 @@ h2 {
   border-color: var(--app-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent) 15%, transparent);
 }
+.form-card input[aria-invalid="true"],
+.form-card textarea[aria-invalid="true"],
+.form-card select[aria-invalid="true"] {
+  border-color: var(--tg-theme-destructive-text-color, #c43d4d);
+}
+.form-card label > .error-text,
+.form-card label > .muted {
+  font-size: 0.78rem;
+  font-weight: 500;
+}
 .slug-input {
   display: flex;
   align-items: center;

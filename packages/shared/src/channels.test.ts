@@ -13,6 +13,20 @@ describe("CreateChannelSchema", () => {
     });
   });
 
+  it("accepts an omitted description and returns a concrete field message", () => {
+    expect(CreateChannelSchema.parse({ name: "Канал", slug: "safe-room" }).description).toBe("");
+    const invalid = CreateChannelSchema.safeParse({ name: "К", slug: "ab" });
+    expect(invalid.success).toBe(false);
+    if (!invalid.success) {
+      expect(invalid.error.issues.map((issue) => issue.message)).toEqual(
+        expect.arrayContaining([
+          "Название должно содержать минимум 2 символа",
+          "Адрес должен содержать минимум 3 символа",
+        ]),
+      );
+    }
+  });
+
   it("rejects unsafe slugs and non-HTTPS avatars", () => {
     expect(() => CreateChannelSchema.parse({ name: "Канал", slug: "../admin" })).toThrow();
     expect(() =>

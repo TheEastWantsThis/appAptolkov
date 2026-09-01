@@ -4,15 +4,15 @@ export const ChannelSlugSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Используйте латиницу, цифры и дефисы")
-  .min(3)
-  .max(48);
+  .min(3, "Адрес должен содержать минимум 3 символа")
+  .max(48, "Адрес не должен превышать 48 символов")
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Используйте латиницу, цифры и дефисы");
 
 const HttpsUrlSchema = z
   .string()
-  .url()
-  .startsWith("https://")
-  .max(2048)
+  .url("Введите корректную ссылку")
+  .startsWith("https://", "Ссылка должна начинаться с https://")
+  .max(2048, "Ссылка слишком длинная")
   .refine((value) => {
     const hostname = new URL(value).hostname.toLowerCase();
     return (
@@ -22,12 +22,28 @@ const HttpsUrlSchema = z
       hostname.endsWith(".telegram.org")
     );
   }, "Домен изображения не разрешён политикой безопасности");
-const OptionalAvatarSchema = z.union([z.literal(""), HttpsUrlSchema]).optional();
+const OptionalAvatarSchema = z
+  .string()
+  .trim()
+  .optional()
+  .refine(
+    (value) => value === undefined || value === "" || HttpsUrlSchema.safeParse(value).success,
+    "Нужна HTTPS-ссылка на изображение с YouTube, Twitch или Telegram",
+  );
 
 export const CreateChannelSchema = z.object({
-  name: z.string().trim().min(2).max(80),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Название должно содержать минимум 2 символа")
+    .max(80, "Название не должно превышать 80 символов"),
   slug: ChannelSlugSchema,
-  description: z.string().trim().max(500).default(""),
+  description: z
+    .string()
+    .trim()
+    .max(500, "Описание не должно превышать 500 символов")
+    .optional()
+    .default(""),
   avatarUrl: OptionalAvatarSchema,
   visibility: z.enum(["PUBLIC", "PRIVATE"]).default("PUBLIC"),
 });
