@@ -20,6 +20,7 @@
 
 ## Последние закрытые дефекты
 
+- Исправлена production-сессия для временной cross-site топологии Vercel/Render: `SameSite=Lax` не передавался из Telegram WebView к API; теперь используется `Secure; HttpOnly; SameSite=None; Partitioned` с прежними exact Origin и CSRF проверками.
 - Добавлены роли внутреннего канала и owner-only управление участниками через безопасный Telegram username.
 - Введён отдельный `RoomPreviewDto`; pre-join больше не выдаёт full Room DTO, а preview показывает максимум три active display names.
 - Lifecycle стал однонаправленным, playback/source/chat после `ENDED` запрещены; Twitch Live применяет versioned reload-to-edge через официальный adapter.
@@ -36,7 +37,7 @@
 | ------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `pnpm lint`                     | PASS                                                                                              |
 | `pnpm typecheck`                | PASS                                                                                              |
-| `pnpm test`                     | PASS: shared 39, API 37, web 16 = 92; PostgreSQL-gated файл skip без URL                          |
+| `pnpm test`                     | PASS: shared 39, API 39, web 16 = 94; PostgreSQL-gated файл skip без URL                          |
 | `pnpm test:e2e`                 | PASS: 2 Chromium mobile сценария, два isolated browser contexts                                   |
 | `pnpm build`                    | PASS: shared/API/Next.js production                                                               |
 | `pnpm audit --audit-level high` | PASS: `No known vulnerabilities found`                                                            |

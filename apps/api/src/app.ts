@@ -42,6 +42,7 @@ import { Server as SocketIoServer } from "socket.io";
 import { z, ZodError } from "zod";
 
 import { validateTelegramInitData, type ValidatedTelegramIdentity } from "./auth/telegram.js";
+import { sessionCookieOptions } from "./auth/session-cookie.js";
 import type { ApiConfig } from "./config.js";
 import { createPostgresDatabase, type DatabaseHealth, type DatabaseRuntime } from "./database.js";
 import { AppError } from "./errors.js";
@@ -804,10 +805,7 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
       expiresAt,
     });
     reply.setCookie(sessionCookie, token, {
-      httpOnly: true,
-      secure: config.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
+      ...sessionCookieOptions(config.NODE_ENV),
       maxAge: config.SESSION_TTL_SECONDS,
     });
     return { csrfToken, user };
@@ -820,12 +818,7 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
     const sockets = await io.fetchSockets();
     for (const socket of sockets)
       if (socket.data.sessionTokenHash === session.tokenHash) socket.disconnect(true);
-    reply.clearCookie(sessionCookie, {
-      path: "/",
-      httpOnly: true,
-      secure: config.NODE_ENV === "production",
-      sameSite: "lax",
-    });
+    reply.clearCookie(sessionCookie, sessionCookieOptions(config.NODE_ENV));
     return reply.code(204).send();
   });
   app.get("/v1/channels", async (request) => {

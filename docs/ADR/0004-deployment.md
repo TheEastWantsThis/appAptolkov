@@ -38,3 +38,7 @@ Vercel остаётся допустимым хостингом только д�
 - файловая система считается ephemeral;
 - horizontal scale запрещён до ADR-0001 gate;
 - Render не зашивается в domain model: только deployment manifests/env, поэтому миграция возможна.
+
+## Временное уточнение для closed test — 2026-09-01
+
+Для бесплатной проверки web размещён на `watchroom-miniapp.vercel.app`, а API/WSS — на `watchroom-api-e5sf.onrender.com`. Это разные sites, поэтому исходная `SameSite=Lax` cookie не передавалась из Telegram WebView к API. Closed-test cookie использует `Secure; HttpOnly; SameSite=None; Partitioned`; exact CORS/Origin allowlist и CSRF token остаются обязательными. Совместимость проверяется на Telegram Android, iOS и Desktop до приглашения пользователей. Целевой вариант с собственными `app.example.com`/`api.example.com` возвращает same-site cookie и остаётся предпочтительным.
