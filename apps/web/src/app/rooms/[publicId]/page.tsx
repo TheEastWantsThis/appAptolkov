@@ -150,6 +150,10 @@ export default function RoomPage() {
       shouldReloadTwitchLiveEdge(playback, currentRoom, lastLiveEdgeVersionRef.current)
     ) {
       lastLiveEdgeVersionRef.current = playback.version;
+      remotePlayerStateRef.current = {
+        state: "PLAYING",
+        untilMs: Date.now() + 2_500,
+      };
       void adapter
         .loadSource({
           provider: "TWITCH",
