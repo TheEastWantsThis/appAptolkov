@@ -310,15 +310,15 @@ test("private room works across two isolated browser contexts", async ({ browser
   await expect(guestView.getByRole("heading", { name: "Ночной кинозал" })).toBeVisible();
 
   await ownerView.getByPlaceholder("Сообщение…").fill("Привет из первого окна");
-  await ownerView.getByRole("button", { name: "Отправить", exact: true }).click();
+  await ownerView.getByRole("button", { name: "Отправить сообщение" }).click();
   await expect(ownerView.getByText("Привет из первого окна")).toBeVisible();
   await guestView.reload();
   await expect(guestView.getByText("Привет из первого окна")).toBeVisible();
 
-  // Scrolling to chat moves the same mounted player into sticky mode automatically.
+  // The same mounted player switches between normal and sticky modes without a close action.
+  await ownerView.getByRole("button", { name: "Закрепить компактный плеер" }).click();
   await expect(ownerView.getByRole("button", { name: "Развернуть плеер" })).toBeVisible();
-  await ownerView.getByRole("button", { name: "Закрыть плеер" }).click();
-  await expect(ownerView.getByRole("button", { name: "Вернуть плеер", exact: true })).toBeVisible();
+  await expect(ownerView.getByRole("button", { name: "Закрыть плеер" })).toHaveCount(0);
 
   for (const page of [ownerView, guestView]) {
     expect(
@@ -353,11 +353,10 @@ test("owner creates a channel and room, shares, controls and ends it", async ({ 
   await ownerPage.getByRole("link", { name: "Создать комнату" }).click();
   await expect(ownerPage).toHaveURL(`/rooms/new?channel=${channelId}`);
   await ownerPage.getByLabel("Название").fill("Полный MVP сценарий");
-  await ownerPage.getByLabel("ID видео или канала").fill("dQw4w9WgXcQ");
   await ownerPage
-    .getByLabel("Каноническая HTTPS-ссылка")
+    .getByLabel("Ссылка на видео или трансляцию")
     .fill("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-  await ownerPage.getByLabel("Сейчас смотрят").fill("Проверяем WatchRoom");
+  await ownerPage.getByLabel("Сейчас смотрят (необязательно)").fill("Проверяем WatchRoom");
   const [, createdRoomResponse] = await Promise.all([
     ownerPage.getByRole("button", { name: "Создать комнату" }).click(),
     ownerPage.waitForResponse(
@@ -372,8 +371,8 @@ test("owner creates a channel and room, shares, controls and ends it", async ({ 
   await expect(ownerPage.getByRole("heading", { name: "Управление владельца" })).toBeVisible();
   await expect(ownerPage.getByRole("button", { name: "Копировать" })).toBeVisible();
 
-  await ownerPage.getByRole("button", { name: "▶ Play" }).click();
-  await expect(ownerPage.getByText("Играет", { exact: true })).toBeVisible();
+  await expect(ownerPage.getByRole("button", { name: "▶ Play" })).toHaveCount(0);
+  await expect(ownerPage.getByRole("heading", { name: "Управление просмотром" })).toHaveCount(0);
 
   const viewerContext = await browser.newContext({ viewport: { width: 320, height: 700 } });
   await mockLifecycleApi(viewerContext, "viewer");

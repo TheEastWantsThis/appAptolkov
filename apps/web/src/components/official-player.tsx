@@ -2,12 +2,11 @@
 
 import {
   PlayerEventSchema,
-  playerCapabilities,
   type PlayerEvent,
   type PlayerSource,
   type PlayerState,
 } from "@watchroom/shared";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createPlayerAdapter } from "../player/create-adapter";
 import type { PlayerAdapter, PlayerErrorDetail } from "../player/types";
@@ -15,7 +14,6 @@ import type { PlayerAdapter, PlayerErrorDetail } from "../player/types";
 interface OfficialPlayerProps {
   source: PlayerSource;
   embeddable?: boolean | null;
-  allowLocalSeek?: boolean;
   compact?: boolean;
   adapterFactory?: (container: HTMLElement, source: PlayerSource) => PlayerAdapter;
   onAdapterChange?: (adapter: PlayerAdapter | null) => void;
@@ -31,14 +29,13 @@ const stateLabels: Record<PlayerState, string> = {
   ENDED: "Видео завершено",
   BUFFERING: "Буферизация…",
   ERROR: "Ошибка плеера",
-  AUTOPLAY_BLOCKED: "Нужно нажать «Начать просмотр»",
+  AUTOPLAY_BLOCKED: "Нажмите ▶ на видео",
   DESTROYED: "Плеер закрыт",
 };
 
 export function OfficialPlayer({
   source,
   embeddable = null,
-  allowLocalSeek = false,
   compact = false,
   adapterFactory = createPlayerAdapter,
   onAdapterChange,
@@ -56,10 +53,7 @@ export function OfficialPlayer({
         }
       : null,
   );
-  const [muted, setMuted] = useState(true);
-  const [seekPosition, setSeekPosition] = useState("0");
   const [pictureInPictureVideo, setPictureInPictureVideo] = useState<HTMLVideoElement | null>(null);
-  const capabilities = useMemo(() => playerCapabilities(source), [source]);
   const sourceKey = `${source.provider}:${source.kind}:${source.sourceId}`;
 
   const effectiveState: PlayerState = embeddable === false ? "ERROR" : state;
@@ -111,24 +105,6 @@ export function OfficialPlayer({
     );
   }, [sourceKey, effectiveState]);
 
-  function startPlayback() {
-    const adapter = adapterRef.current;
-    if (!adapter) return;
-    adapter.setMuted(false);
-    setMuted(false);
-    adapter.play();
-  }
-
-  function toggleMuted() {
-    const next = !muted;
-    adapterRef.current?.setMuted(next);
-    setMuted(next);
-  }
-
-  function seek() {
-    adapterRef.current?.seek(Number(seekPosition) || 0);
-  }
-
   async function requestPictureInPicture() {
     if (!pictureInPictureVideo) return;
     try {
@@ -158,27 +134,6 @@ export function OfficialPlayer({
         <span className="player-state" role="status">
           {stateLabels[effectiveState]}
         </span>
-        <button className="primary-button" type="button" onClick={startPlayback}>
-          Начать просмотр
-        </button>
-        <button className="secondary-button" type="button" onClick={toggleMuted}>
-          {muted ? "Включить звук" : "Выключить звук"}
-        </button>
-        {capabilities.seek && allowLocalSeek && !compact ? (
-          <span className="player-seek-control">
-            <input
-              aria-label="Позиция в секундах"
-              min="0"
-              step="1"
-              type="number"
-              value={seekPosition}
-              onChange={(event) => setSeekPosition(event.target.value)}
-            />
-            <button className="secondary-button" type="button" onClick={seek}>
-              Перейти
-            </button>
-          </span>
-        ) : null}
         {pictureInPictureVideo ? (
           <button
             aria-label="Открыть системный режим картинка в картинке"
@@ -192,7 +147,7 @@ export function OfficialPlayer({
       </div>
       {effectiveState === "AUTOPLAY_BLOCKED" ? (
         <p className="player-help">
-          Telegram или браузер заблокировал программный запуск. Нажмите «Начать просмотр».
+          Telegram или браузер заблокировал программный запуск. Нажмите ▶ прямо на видео.
         </p>
       ) : null}
       {error ? (

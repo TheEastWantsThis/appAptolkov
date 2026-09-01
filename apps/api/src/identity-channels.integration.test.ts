@@ -191,6 +191,11 @@ describe("identity and channel authorization", () => {
       payload: { initData: sign(202, "intruder") },
     });
     const intruder = intruderAuth.json();
+    const publicCatalog = await runtime.app.inject({
+      method: "GET",
+      url: "/v1/channels/public",
+      headers: { cookie: cookieOf(intruderAuth), origin: config.WEB_ORIGIN },
+    });
     const edited = await runtime.app.inject({
       method: "PATCH",
       url: `/v1/channels/${created.json().channel.id}`,
@@ -203,6 +208,10 @@ describe("identity and channel authorization", () => {
     });
     expect(withoutCsrf.statusCode).toBe(403);
     expect(withoutCsrf.json().error.code).toBe("INVALID_CSRF");
+    expect(publicCatalog.statusCode).toBe(200);
+    expect(publicCatalog.json().channels).toEqual([
+      expect.objectContaining({ slug: "author-channel", role: null, visibility: "PUBLIC" }),
+    ]);
     expect(edited.statusCode).toBe(403);
     expect(edited.json().error.code).toBe("CHANNEL_FORBIDDEN");
   });

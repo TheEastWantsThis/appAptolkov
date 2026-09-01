@@ -35,6 +35,7 @@ export interface WatchRoomStore {
   findSession(tokenHash: string): Promise<SessionRecord | null>;
   revokeSession(tokenHash: string): Promise<void>;
   listChannels(userId: string): Promise<ChannelDto[]>;
+  listPublicChannels(userId: string): Promise<ChannelDto[]>;
   createChannel(userId: string, input: CreateChannelInput): Promise<ChannelDto>;
   getChannel(slug: string, userId: string | null): Promise<ChannelDto | null>;
   updateChannel(userId: string, channelId: string, input: UpdateChannelInput): Promise<ChannelDto>;
@@ -220,6 +221,16 @@ export class PrismaWatchRoomStore implements WatchRoomStore {
       where: { members: { some: { userId } } },
       include: { members: true, _count: { select: { members: true } } },
       orderBy: { updatedAt: "desc" },
+    });
+    return channels.map((channel) => channelDto(channel, userId));
+  }
+
+  async listPublicChannels(userId: string): Promise<ChannelDto[]> {
+    const channels = await this.prisma.channel.findMany({
+      where: { visibility: "PUBLIC" },
+      include: { members: true, _count: { select: { members: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
     });
     return channels.map((channel) => channelDto(channel, userId));
   }
@@ -499,6 +510,16 @@ export class MemoryWatchRoomStore implements WatchRoomStore {
   async listChannels(userId: string): Promise<ChannelDto[]> {
     return [...this.channels.values()]
       .filter((channel) => this.channelMembers.get(channel.id)?.has(userId))
+      .map((channel) => ({
+        ...channel,
+        role: this.channelMembers.get(channel.id)?.get(userId)?.role ?? null,
+      }));
+  }
+  async listPublicChannels(userId: string): Promise<ChannelDto[]> {
+    return [...this.channels.values()]
+      .filter((channel) => channel.visibility === "PUBLIC")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, 50)
       .map((channel) => ({
         ...channel,
         role: this.channelMembers.get(channel.id)?.get(userId)?.role ?? null,

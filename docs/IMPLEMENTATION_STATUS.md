@@ -20,6 +20,10 @@
 
 ## Последние закрытые дефекты
 
+- Комната упрощена под мобильный сценарий: отдельные start/play/pause/seek controls удалены, разрешённые play/pause теперь отправляются из событий официального плеера; close у mini-player удалён, режимы переключаются компактными icon-кнопками.
+- Чат перенесён сразу под видео, получил Telegram-подобные bubbles, собственные сообщения справа, автопрокрутку, компактный composer и удаление только через меню сообщения.
+- Deep link routing теперь учитывает signed `start_param`, query/hash launch parameters и `initDataUnsafe.start_param` только как недоверенную навигационную подсказку; доступ к комнате по-прежнему проверяет сервер.
+- Добавлен отдельный каталог публичных каналов; закрытые каналы в него не попадают, а индекс `Channel(visibility, updatedAt)` обеспечивает ограниченную выдачу последних 50 записей.
 - Исправлена production-сессия для временной cross-site топологии Vercel/Render: `SameSite=Lax` не передавался из Telegram WebView к API; теперь используется `Secure; HttpOnly; SameSite=None; Partitioned` с прежними exact Origin и CSRF проверками.
 - Добавлены роли внутреннего канала и owner-only управление участниками через безопасный Telegram username.
 - Введён отдельный `RoomPreviewDto`; pre-join больше не выдаёт full Room DTO, а preview показывает максимум три active display names.
@@ -37,7 +41,7 @@
 | ------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `pnpm lint`                     | PASS                                                                                              |
 | `pnpm typecheck`                | PASS                                                                                              |
-| `pnpm test`                     | PASS: shared 39, API 39, web 16 = 94; PostgreSQL-gated файл skip без URL                          |
+| `pnpm test`                     | PASS: shared 41, API 39, web 20 = 100; PostgreSQL-gated файл skip без URL                         |
 | `pnpm test:e2e`                 | PASS: 2 Chromium mobile сценария, два isolated browser contexts                                   |
 | `pnpm build`                    | PASS: shared/API/Next.js production                                                               |
 | `pnpm audit --audit-level high` | PASS: `No known vulnerabilities found`                                                            |

@@ -612,8 +612,7 @@ h2 {
   gap: 8px;
   align-items: center;
 }
-.member-actions button,
-.chat-message button {
+.member-actions button {
   border: 0;
   padding: 3px;
   background: transparent;
@@ -622,45 +621,170 @@ h2 {
   font-size: 0.75rem;
 }
 .chat-list {
-  display: grid;
-  max-height: 360px;
-  gap: 10px;
+  display: flex;
+  min-height: 220px;
+  max-height: min(52vh, 520px);
+  gap: 8px;
+  flex-direction: column;
   overflow-y: auto;
-  margin-top: 16px;
+  margin: 0 -4px;
+  padding: 6px 4px 10px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .chat-message {
-  border-radius: 14px;
-  padding: 11px 13px;
+  position: relative;
+  width: fit-content;
+  max-width: min(86%, 520px);
+  align-self: flex-start;
+  border-radius: 6px 18px 18px;
+  padding: 8px 10px 9px;
   background: var(--app-surface-secondary);
+  box-shadow: 0 1px 2px color-mix(in srgb, #000 9%, transparent);
 }
-.chat-message > div {
+.chat-message-own {
+  align-self: flex-end;
+  border-radius: 18px 6px 18px 18px;
+  background: color-mix(in srgb, var(--app-accent) 17%, var(--app-surface));
+}
+.chat-message-meta {
   display: flex;
   gap: 8px;
-  align-items: baseline;
+  min-height: 20px;
+  align-items: center;
+}
+.chat-message-meta strong {
+  color: var(--app-accent);
+  font-size: 0.78rem;
+}
+.chat-message-own .chat-message-meta strong {
+  color: var(--app-text);
 }
 .chat-message small {
+  margin-left: auto;
   color: var(--app-muted);
+  font-size: 0.68rem;
 }
 .chat-message p {
-  margin: 5px 0 0;
+  margin: 4px 2px 0;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.chat-avatar {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--app-accent);
+  color: var(--app-accent-text);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.chat-message-own .chat-avatar {
+  display: none;
+}
+.chat-message-menu {
+  position: relative;
+}
+.chat-message-menu > summary {
+  display: grid;
+  width: 26px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--app-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  list-style: none;
+}
+.chat-message-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.chat-message-menu > div {
+  position: absolute;
+  z-index: 25;
+  top: 28px;
+  right: 0;
+  width: 170px;
+  border: 1px solid color-mix(in srgb, var(--app-text) 12%, transparent);
+  border-radius: 12px;
+  padding: 5px;
+  background: var(--app-surface);
+  box-shadow: 0 12px 34px color-mix(in srgb, #000 18%, transparent);
+}
+.chat-message-menu button {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px;
+  background: transparent;
+  color: var(--tg-theme-destructive-text-color, #c43d4d);
+  cursor: pointer;
+  text-align: left;
+}
+.chat-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+.chat-heading p {
+  margin: 3px 0 0;
+  font-size: 0.72rem;
+}
+.chat-online-dot {
+  flex: 0 0 auto;
+  color: var(--app-success);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.chat-empty-state {
+  display: grid;
+  min-height: 190px;
+  place-content: center;
+  justify-items: center;
+  color: var(--app-muted);
+  text-align: center;
+}
+.chat-empty-state span {
+  font-size: 2rem;
+}
+.chat-empty-state p {
+  margin: 8px 0 0;
 }
 .chat-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 9px;
-  margin-top: 14px;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid color-mix(in srgb, var(--app-text) 8%, transparent);
+  padding-top: 12px;
 }
 .chat-form input {
   min-width: 0;
   border: 1px solid color-mix(in srgb, var(--app-text) 15%, transparent);
-  border-radius: 13px;
-  padding: 12px;
+  border-radius: 999px;
+  padding: 12px 16px;
   background: var(--app-surface-secondary);
   color: var(--app-text);
 }
-.chat-form .primary-button {
-  margin-top: 0;
+.chat-send-button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--app-accent);
+  color: var(--app-accent-text);
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+.chat-send-button:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 .sr-only {
   position: absolute;
@@ -950,13 +1074,17 @@ h2 {
   padding: 2px 2px 7px;
 }
 .mini-player-actions button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
   border: 1px solid #3a3d45;
-  border-radius: 9px;
-  padding: 6px 9px;
+  border-radius: 50%;
+  padding: 0;
   background: #181b22;
   color: #f6f7fa;
   cursor: pointer;
-  font-size: 0.72rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 .player-mode-sticky[data-provider="YOUTUBE"] {
@@ -973,28 +1101,6 @@ h2 {
   left: 50%;
   width: min(520px, 100vw);
   transform: translateX(-50%);
-}
-.player-mode-hidden {
-  position: fixed;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  opacity: 0;
-  pointer-events: none;
-}
-.restore-player-button {
-  position: fixed;
-  z-index: 49;
-  right: max(12px, var(--tg-content-safe-area-inset-right));
-  bottom: max(76px, calc(var(--tg-content-safe-area-inset-bottom) + 70px));
-  border: 0;
-  border-radius: 999px;
-  padding: 11px 15px;
-  background: var(--app-accent);
-  color: var(--app-accent-text);
-  box-shadow: 0 12px 32px color-mix(in srgb, #000 24%, transparent);
-  cursor: pointer;
-  font-weight: 800;
 }
 .now-watching-card,
 .room-panel,

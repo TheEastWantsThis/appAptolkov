@@ -31,7 +31,7 @@ import { useWatchRoom } from "../../../components/watchroom-provider";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const websocketUrl = process.env.NEXT_PUBLIC_WS_URL ?? apiUrl;
-type PlayerMode = "NORMAL" | "STICKY" | "HIDDEN";
+type PlayerMode = "NORMAL" | "STICKY";
 
 export default function RoomPage() {
   const { publicId } = useParams<{ publicId: string }>();
@@ -57,7 +57,6 @@ export default function RoomPage() {
   const [chatText, setChatText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [position, setPosition] = useState("0");
   const [connectionState, setConnectionState] = useState<RoomConnectionState>("CONNECTING");
   const [playerState, setPlayerState] = useState<PlayerState>("LOADING");
   const [playerMode, setPlayerMode] = useState<PlayerMode>("NORMAL");
@@ -66,6 +65,7 @@ export default function RoomPage() {
   const [sourceInput, setSourceInput] = useState("");
   const socketRef = useRef<Socket | null>(null);
   const playerAnchorRef = useRef<HTMLDivElement | null>(null);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
   const playerModeRef = useRef<PlayerMode>("NORMAL");
   const adapterRef = useRef<PlayerAdapter | null>(null);
   const roomRef = useRef<RoomDto | null>(null);
@@ -74,6 +74,10 @@ export default function RoomPage() {
     null,
   );
   const applyingRemoteRef = useRef(false);
+  const remotePlayerStateRef = useRef<{
+    state: "PLAYING" | "PAUSED";
+    untilMs: number;
+  } | null>(null);
 
   useEffect(() => {
     playerModeRef.current = playerMode;
@@ -81,6 +85,10 @@ export default function RoomPage() {
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
+  useEffect(() => {
+    const list = chatListRef.current;
+    if (list) list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
+  }, [messages.length]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -116,7 +124,7 @@ export default function RoomPage() {
     if (!anchor || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry || playerModeRef.current === "HIDDEN") return;
+        if (!entry) return;
         setPlayerMode(entry.isIntersecting ? "NORMAL" : "STICKY");
       },
       { threshold: 0.35 },
@@ -170,12 +178,14 @@ export default function RoomPage() {
         );
         if (correction.kind !== "NONE") adapter.seek(correction.targetSeconds);
       }
+      remotePlayerStateRef.current = {
+        state: playback.state === "PLAYING" ? "PLAYING" : "PAUSED",
+        untilMs: Date.now() + 2_500,
+      };
       if (playback.state === "PLAYING") adapter.play();
       else adapter.pause();
       if (adapter.getState() === "AUTOPLAY_BLOCKED")
-        setNotice(
-          "Браузер ждёт вашего нажатия «Начать просмотр». Состояние будет применено после него.",
-        );
+        setNotice("Браузер ждёт вашего нажатия ▶ прямо на видео.");
       pendingPlaybackRef.current = null;
     } finally {
       queueMicrotask(() => {
@@ -193,12 +203,36 @@ export default function RoomPage() {
     },
     [applyRemotePlayback],
   );
-  const handlePlayerState = useCallback((state: PlayerState) => {
-    setPlayerState(state);
-    if (state === "ERROR") socketRef.current?.emit("telemetry:event", { type: "PLAYER_ERROR" });
-    if (state === "AUTOPLAY_BLOCKED")
-      socketRef.current?.emit("telemetry:event", { type: "AUTOPLAY_BLOCKED" });
-  }, []);
+  const handlePlayerState = useCallback(
+    (state: PlayerState) => {
+      setPlayerState(state);
+      if (state === "ERROR") socketRef.current?.emit("telemetry:event", { type: "PLAYER_ERROR" });
+      if (state === "AUTOPLAY_BLOCKED")
+        socketRef.current?.emit("telemetry:event", { type: "AUTOPLAY_BLOCKED" });
+      if (state !== "PLAYING" && state !== "PAUSED") return;
+      const remoteState = remotePlayerStateRef.current;
+      if (remoteState && remoteState.untilMs > Date.now() && remoteState.state === state) {
+        remotePlayerStateRef.current = null;
+        return;
+      }
+      if (applyingRemoteRef.current) return;
+      const currentRoom = roomRef.current;
+      const action = state === "PLAYING" ? "play" : "pause";
+      if (
+        !currentRoom ||
+        currentRoom.status === "ENDED" ||
+        !currentRoom.permissions.includes(action)
+      )
+        return;
+      socketRef.current?.emit(`playback:${action}`, {
+        publicId,
+        commandId: crypto.randomUUID(),
+        expectedVersion: currentRoom.playback.version,
+        positionSeconds: adapterRef.current?.getCurrentTime() ?? 0,
+      });
+    },
+    [publicId],
+  );
 
   const load = useCallback(
     async (grant: string | null, enter = false) => {
@@ -227,7 +261,6 @@ export default function RoomPage() {
       setLocked(false);
       setAwaitingJoin(false);
       setRoom(joined.room);
-      setPosition(String(Math.round(joined.room.playback.positionSeconds)));
       const memberPage = await request<{ members: RoomMemberDto[] }>(
         `/v1/rooms/${joined.room.id}/members?limit=100`,
       );
@@ -458,39 +491,6 @@ export default function RoomPage() {
       await load(response.grantToken);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : "Не удалось открыть комнату.");
-    }
-  }
-
-  async function playback(action: "play" | "pause" | "seek") {
-    if (!room || applyingRemoteRef.current) return;
-    const positionSeconds =
-      action === "seek"
-        ? Number(position) || 0
-        : (adapterRef.current?.getCurrentTime() ?? (Number(position) || 0));
-    const socket = socketRef.current;
-    if (socket?.connected) {
-      socket.emit(`playback:${action}`, {
-        publicId,
-        commandId: crypto.randomUUID(),
-        expectedVersion: room.playback.version,
-        positionSeconds,
-      });
-      return;
-    }
-    try {
-      const response = await request<{ room: RoomDto }>(`/v1/rooms/${publicId}/playback`, {
-        method: "POST",
-        ...(grantToken ? { headers: { "x-room-grant": grantToken } } : {}),
-        body: JSON.stringify({
-          action,
-          positionSeconds,
-          expectedVersion: room.playback.version,
-        }),
-      });
-      setRoom(response.room);
-      setNotice("Состояние просмотра обновлено");
-    } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "Команда не выполнена.");
     }
   }
 
@@ -765,9 +765,6 @@ export default function RoomPage() {
   const onlineSet = new Set(onlineUserIds);
   const onlineMembers = members.filter((member) => onlineSet.has(member.userId));
   const playbackActor = members.find((member) => member.userId === room.playback.actorUserId);
-  const canPlay = room.permissions.includes("play");
-  const canPause = room.permissions.includes("pause");
-  const canSeek = room.permissions.includes("seek");
   const muteRemainingSeconds = chatRestriction
     ? Math.max(0, Math.ceil((new Date(chatRestriction.mutedUntil).getTime() - clockMs) / 1_000))
     : 0;
@@ -834,34 +831,25 @@ export default function RoomPage() {
             {playerMode !== "NORMAL" ? (
               <button
                 aria-label="Развернуть плеер"
+                title="Развернуть"
                 type="button"
                 onClick={() => setPlayerMode("NORMAL")}
               >
-                Развернуть
+                ⛶
               </button>
             ) : null}
             {playerMode === "NORMAL" ? (
               <button
-                aria-label="Свернуть плеер"
+                aria-label="Закрепить компактный плеер"
+                title="Закрепить сверху"
                 type="button"
                 onClick={() => setPlayerMode("STICKY")}
               >
-                Свернуть
+                ⌃
               </button>
             ) : null}
-            <button
-              aria-label="Закрыть плеер"
-              type="button"
-              onClick={() => {
-                adapterRef.current?.pause();
-                setPlayerMode("HIDDEN");
-              }}
-            >
-              Закрыть
-            </button>
           </div>
           <OfficialPlayer
-            allowLocalSeek={canSeek}
             compact={playerMode !== "NORMAL"}
             embeddable={room.cachedEmbeddable}
             source={playerSource}
@@ -870,72 +858,112 @@ export default function RoomPage() {
           />
         </section>
       </div>
-      {playerMode === "HIDDEN" ? (
-        <button
-          className="restore-player-button"
-          type="button"
-          onClick={() => setPlayerMode("NORMAL")}
-        >
-          Вернуть плеер
-        </button>
-      ) : null}
+
+      <section className="room-panel chat-card">
+        <div className="chat-heading">
+          <div>
+            <h2>Чат</h2>
+            <p className="muted">До 40 сообщений · удаляются через 24 часа</p>
+          </div>
+          <span className="chat-online-dot">{onlineMembers.length} онлайн</span>
+        </div>
+        {systemEvents.length ? (
+          <div className="system-event-list" aria-label="События комнаты" aria-live="polite">
+            {systemEvents.slice(-8).map((event) => {
+              const actor = members.find((member) => member.userId === event.actorUserId);
+              const action = {
+                MEMBER_JOINED: "вошёл в комнату",
+                PLAYBACK_STARTED: "запустил просмотр",
+                PLAYBACK_PAUSED: "поставил на паузу",
+                SOURCE_CHANGED: "сменил источник",
+                ROOM_ENDED: "завершил комнату",
+              }[event.kind];
+              return (
+                <p key={event.id}>
+                  {actor?.firstName ?? "Участник"} {action}
+                </p>
+              );
+            })}
+          </div>
+        ) : null}
+        <div className="chat-list" aria-live="polite" ref={chatListRef}>
+          {messages.length === 0 ? (
+            <div className="chat-empty-state">
+              <span>💬</span>
+              <p>Напишите первое сообщение</p>
+            </div>
+          ) : (
+            messages.map((message) => {
+              const ownMessage = message.authorId === user?.id;
+              const canDelete = ownMessage || room.permissions.includes("delete_chat_message");
+              return (
+                <article
+                  className={`chat-message${ownMessage ? " chat-message-own" : ""}`}
+                  key={message.id}
+                >
+                  <div className="chat-message-meta">
+                    <span className="chat-avatar" aria-hidden="true">
+                      {message.authorFirstName.slice(0, 1).toUpperCase()}
+                    </span>
+                    <strong>{ownMessage ? "Вы" : message.authorFirstName}</strong>
+                    <small>
+                      {new Date(message.createdAt).toLocaleTimeString("ru", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                    {canDelete ? (
+                      <details className="chat-message-menu">
+                        <summary aria-label="Опции сообщения">•••</summary>
+                        <div>
+                          <button type="button" onClick={() => void deleteMessage(message.id)}>
+                            Удалить сообщение
+                          </button>
+                        </div>
+                      </details>
+                    ) : null}
+                  </div>
+                  <p>{message.text}</p>
+                </article>
+              );
+            })
+          )}
+        </div>
+        <form className="chat-form" onSubmit={(event) => void sendMessage(event)}>
+          <label className="sr-only" htmlFor="room-chat-message">
+            Сообщение
+          </label>
+          <input
+            disabled={chatMuted}
+            id="room-chat-message"
+            maxLength={500}
+            placeholder={chatMuted ? "Вы временно не можете писать" : "Сообщение…"}
+            value={chatText}
+            onChange={(event) => setChatText(event.target.value)}
+          />
+          <button
+            aria-label="Отправить сообщение"
+            className="chat-send-button"
+            type="submit"
+            disabled={chatMuted || !chatText.trim()}
+          >
+            ➤
+          </button>
+        </form>
+        {chatMuted ? (
+          <p className="chat-mute-notice" role="status">
+            Текстовый чат недоступен ещё {Math.ceil(muteRemainingSeconds / 60)} мин.
+            {chatRestriction?.reason ? ` Причина: ${chatRestriction.reason}` : ""} Смотреть и
+            отправлять реакции можно.
+          </p>
+        ) : null}
+      </section>
 
       <section className="now-watching-card">
         <span>Сейчас смотрят</span>
         <strong>{room.nowWatchingText || room.cachedTitle || "Источник выбран"}</strong>
         <small>{room.cachedCreatorName || room.sourceId}</small>
       </section>
-
-      {(canPlay || canPause || canSeek) && room.status !== "ENDED" ? (
-        <section className="room-panel" aria-labelledby="sync-heading">
-          <div className="room-section-heading">
-            <div>
-              <p className="eyebrow">Версия {room.playback.version}</p>
-              <h2 id="sync-heading">Управление просмотром</h2>
-            </div>
-            <span className="status-pill">{room.playback.paused ? "Пауза" : "Играет"}</span>
-          </div>
-          <div className="playback-controls">
-            {canSeek ? (
-              <input
-                aria-label="Позиция в секундах"
-                type="number"
-                min="0"
-                step="1"
-                value={position}
-                onChange={(event) => setPosition(event.target.value)}
-              />
-            ) : null}
-            {canPlay ? (
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => void playback("play")}
-              >
-                ▶ Play
-              </button>
-            ) : null}
-            {canPause ? (
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => void playback("pause")}
-              >
-                Ⅱ Pause
-              </button>
-            ) : null}
-            {canSeek ? (
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => void playback("seek")}
-              >
-                Seek
-              </button>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
 
       {live ? (
         <p className="live-latency-note">
@@ -1024,81 +1052,6 @@ export default function RoomPage() {
         </ul>
       </section>
 
-      <section className="room-panel chat-card">
-        <div>
-          <h2>Чат комнаты</h2>
-          <p className="muted">Простой чат: максимум 40 сообщений, хранение до 24 часов.</p>
-        </div>
-        {systemEvents.length ? (
-          <div className="system-event-list" aria-label="События комнаты" aria-live="polite">
-            {systemEvents.slice(-8).map((event) => {
-              const actor = members.find((member) => member.userId === event.actorUserId);
-              const action = {
-                MEMBER_JOINED: "вошёл в комнату",
-                PLAYBACK_STARTED: "запустил просмотр",
-                PLAYBACK_PAUSED: "поставил на паузу",
-                SOURCE_CHANGED: "сменил источник",
-                ROOM_ENDED: "завершил комнату",
-              }[event.kind];
-              return (
-                <p key={event.id}>
-                  {actor?.firstName ?? "Участник"} {action}
-                </p>
-              );
-            })}
-          </div>
-        ) : null}
-        <div className="chat-list" aria-live="polite">
-          {messages.length === 0 ? (
-            <p className="muted">Сообщений пока нет.</p>
-          ) : (
-            messages.map((message) => (
-              <article className="chat-message" key={message.id}>
-                <div>
-                  <strong>{message.authorFirstName}</strong>
-                  <small>
-                    {new Date(message.createdAt).toLocaleTimeString("ru", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </small>
-                </div>
-                <p>{message.text}</p>
-                {message.authorId === user?.id ||
-                room.permissions.includes("delete_chat_message") ? (
-                  <button type="button" onClick={() => void deleteMessage(message.id)}>
-                    Удалить
-                  </button>
-                ) : null}
-              </article>
-            ))
-          )}
-        </div>
-        <form className="chat-form" onSubmit={(event) => void sendMessage(event)}>
-          <label className="sr-only" htmlFor="room-chat-message">
-            Сообщение
-          </label>
-          <input
-            disabled={chatMuted}
-            id="room-chat-message"
-            maxLength={500}
-            placeholder={chatMuted ? "Вы временно не можете писать" : "Сообщение…"}
-            value={chatText}
-            onChange={(event) => setChatText(event.target.value)}
-          />
-          <button className="primary-button" type="submit" disabled={chatMuted || !chatText.trim()}>
-            Отправить
-          </button>
-        </form>
-        {chatMuted ? (
-          <p className="chat-mute-notice" role="status">
-            Текстовый чат недоступен ещё {Math.ceil(muteRemainingSeconds / 60)} мин.
-            {chatRestriction?.reason ? ` Причина: ${chatRestriction.reason}` : ""} Смотреть и
-            отправлять реакции можно.
-          </p>
-        ) : null}
-      </section>
-
       {room.linkedTelegramChatUrl ? (
         <section className="telegram-discussion-card">
           <div>
@@ -1182,17 +1135,6 @@ export default function RoomPage() {
                   }
                 </option>
               ))}
-            </select>
-          </label>
-          <label>
-            Управление просмотром
-            <select
-              value={room.controlPolicy}
-              onChange={(event) => void updateOwner({ controlPolicy: event.target.value })}
-            >
-              <option value="OWNER_ONLY">Только владелец</option>
-              <option value="MODERATORS">Владелец и модераторы</option>
-              <option value="EVERYONE">Все участники</option>
             </select>
           </label>
           <label className="toggle-label">

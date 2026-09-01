@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { PlayerCapabilities, PlayerEvent, PlayerSource, PlayerState } from "@watchroom/shared";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PlayerAdapter, PlayerEventDetail, PlayerEventHandler } from "../player/types";
@@ -49,14 +49,13 @@ const youtubeSource: PlayerSource = {
 afterEach(cleanup);
 
 describe("OfficialPlayer", () => {
-  it("never autoplays and starts unmuted only from a user click", async () => {
+  it("never adds duplicate playback controls over the official player", async () => {
     const adapter = new FakeAdapter({ seek: true, currentTime: true, duration: true });
     render(<OfficialPlayer adapterFactory={() => adapter} source={youtubeSource} />);
     await waitFor(() => expect(adapter.loadSource).toHaveBeenCalledWith(youtubeSource));
     expect(adapter.play).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Начать просмотр" }));
-    expect(adapter.setMuted).toHaveBeenCalledWith(false);
-    expect(adapter.play).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: "Начать просмотр" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Перейти" })).toBeNull();
   });
 
   it("shows an original-link fallback for provider errors", async () => {
@@ -93,16 +92,10 @@ describe("OfficialPlayer", () => {
     expect(screen.queryByRole("button", { name: "Перейти" })).toBeNull();
   });
 
-  it("does not expose local seek without the server permission", () => {
+  it("does not render a second seek UI for VOD", () => {
     const adapter = new FakeAdapter({ seek: true, currentTime: true, duration: true });
-    const { rerender } = render(
-      <OfficialPlayer adapterFactory={() => adapter} source={youtubeSource} />,
-    );
+    render(<OfficialPlayer adapterFactory={() => adapter} source={youtubeSource} />);
     expect(screen.queryByRole("button", { name: "Перейти" })).toBeNull();
-    rerender(
-      <OfficialPlayer allowLocalSeek adapterFactory={() => adapter} source={youtubeSource} />,
-    );
-    expect(screen.getByRole("button", { name: "Перейти" })).toBeTruthy();
   });
 
   it("reports autoplay blocking to the room UI", async () => {
@@ -118,7 +111,7 @@ describe("OfficialPlayer", () => {
     await waitFor(() => expect(adapter.loadSource).toHaveBeenCalled());
     act(() => adapter.emit({ event: "AUTOPLAY_BLOCKED" }));
     expect(onStateChange).toHaveBeenCalledWith("AUTOPLAY_BLOCKED");
-    expect(screen.getByText(/Telegram или браузер заблокировал/)).toBeTruthy();
+    expect(screen.getByText(/Нажмите ▶ прямо на видео/)).toBeTruthy();
   });
 
   it("hides system PiP for an official cross-origin iframe", async () => {

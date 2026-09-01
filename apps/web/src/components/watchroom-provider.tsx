@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { roomPublicIdFromTelegramStart } from "../lib/telegram-start";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const csrfStorageKey = "watchroom.csrf";
@@ -44,20 +45,21 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const routeFromStartParam = useCallback(() => {
+    const webApp = window.Telegram?.WebApp;
+    const publicId = roomPublicIdFromTelegramStart({
+      initData: webApp?.initData ?? "",
+      ...(webApp?.initDataUnsafe?.start_param
+        ? { unsafeStartParam: webApp.initDataUnsafe.start_param }
+        : {}),
+      locationSearch: window.location.search,
+      locationHash: window.location.hash,
+    });
+    if (publicId) router.replace(`/rooms/${publicId}`);
+  }, [router]);
   useEffect(() => {
     let active = true;
     async function authenticate() {
-      const routeFromStartParam = () => {
-        const rawInitData = window.Telegram?.WebApp.initData ?? "";
-        const signedStartParam = new URLSearchParams(rawInitData).get("start_param");
-        const queryStartParam = new URLSearchParams(window.location.search).get(
-          "tgWebAppStartParam",
-        );
-        const match = /^room_([A-Za-z0-9_-]{20,24})$/.exec(
-          signedStartParam ?? queryStartParam ?? "",
-        );
-        if (match?.[1]) router.replace(`/rooms/${match[1]}`);
-      };
       const cachedCsrf = sessionStorage.getItem(csrfStorageKey) ?? "";
       activeCsrfToken = cachedCsrf;
       try {
@@ -93,7 +95,13 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [routeFromStartParam]);
+  useEffect(() => {
+    if (!user) return;
+    routeFromStartParam();
+    window.addEventListener("watchroom:telegram-activated", routeFromStartParam);
+    return () => window.removeEventListener("watchroom:telegram-activated", routeFromStartParam);
+  }, [routeFromStartParam, user]);
   const logout = useCallback(async () => {
     await apiRequest("/v1/auth/logout", { method: "POST", body: "{}" });
     activeCsrfToken = "";

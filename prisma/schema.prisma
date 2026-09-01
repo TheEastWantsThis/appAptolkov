@@ -126,6 +126,7 @@ model Channel {
   rooms       Room[]
 
   @@index([ownerId])
+  @@index([visibility, updatedAt])
 }
 
 model Room {

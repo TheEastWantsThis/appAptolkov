@@ -23,6 +23,7 @@ interface TelegramSafeAreaInset {
 
 interface TelegramWebApp {
   initData: string;
+  initDataUnsafe?: { start_param?: string };
   colorScheme: "light" | "dark";
   contentSafeAreaInset?: TelegramSafeAreaInset;
   isActive?: boolean;

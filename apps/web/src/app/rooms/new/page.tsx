@@ -15,7 +15,6 @@ export default function NewRoomPage() {
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"PUBLIC" | "PRIVATE">("PUBLIC");
   const [password, setPassword] = useState("");
-  const [controlPolicy, setControlPolicy] = useState("OWNER_ONLY");
   const [sourceProvider, setSourceProvider] = useState<"YOUTUBE" | "TWITCH">("YOUTUBE");
   const [sourceKind, setSourceKind] = useState<"VIDEO" | "VOD" | "LIVE">("VIDEO");
   const [sourceInput, setSourceInput] = useState("");
@@ -53,7 +52,6 @@ export default function NewRoomPage() {
           description,
           visibility,
           ...(visibility === "PRIVATE" ? { password } : {}),
-          controlPolicy,
           sourceProvider: source.provider,
           sourceKind: source.kind,
           sourceId: source.sourceId,
@@ -124,17 +122,6 @@ export default function NewRoomPage() {
               />
             </label>
           ) : null}
-          <label>
-            Кто управляет просмотром
-            <select
-              value={controlPolicy}
-              onChange={(event) => setControlPolicy(event.target.value)}
-            >
-              <option value="OWNER_ONLY">Только владелец</option>
-              <option value="MODERATORS">Владелец и модераторы</option>
-              <option value="EVERYONE">Все участники</option>
-            </select>
-          </label>
           <div className="form-columns">
             <label>
               Платформа

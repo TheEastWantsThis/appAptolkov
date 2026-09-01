@@ -46,7 +46,7 @@ export function RoomStatusStack({
       ) : null}
       {playerState === "AUTOPLAY_BLOCKED" ? (
         <div className="room-state-banner room-state-warning" role="status">
-          Нажмите «Начать просмотр» — Telegram требует пользовательский жест.
+          Нажмите ▶ прямо на видео — Telegram требует пользовательский жест.
         </div>
       ) : null}
       {playerState === "BUFFERING" ? (

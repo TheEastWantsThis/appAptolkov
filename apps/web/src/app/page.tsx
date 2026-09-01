@@ -9,6 +9,7 @@ import { useWatchRoom } from "../components/watchroom-provider";
 export default function HomePage() {
   const { user, loading, error, logout, request } = useWatchRoom();
   const [channels, setChannels] = useState<ChannelDto[]>([]);
+  const [publicChannels, setPublicChannels] = useState<ChannelDto[]>([]);
   const [channelsError, setChannelsError] = useState<string | null>(null);
   useEffect(() => {
     if (!user) return;
@@ -16,6 +17,13 @@ export default function HomePage() {
       .then((data) => setChannels(data.channels))
       .catch((reason: unknown) =>
         setChannelsError(reason instanceof Error ? reason.message : "Не удалось загрузить каналы."),
+      );
+    void request<{ channels: ChannelDto[] }>("/v1/channels/public")
+      .then((data) => setPublicChannels(data.channels))
+      .catch((reason: unknown) =>
+        setChannelsError(
+          reason instanceof Error ? reason.message : "Не удалось загрузить открытые каналы.",
+        ),
       );
   }, [request, user]);
   if (loading)
@@ -78,6 +86,35 @@ export default function HomePage() {
                 <h2>{channel.name}</h2>
                 <p className="muted">
                   @{channel.slug} · {channel.visibility === "PUBLIC" ? "Открытый" : "Закрытый"}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+      <section className="section-block" aria-labelledby="public-channels-title">
+        <div className="section-heading-row">
+          <div>
+            <p className="eyebrow">Каталог</p>
+            <h2 id="public-channels-title">Открытые каналы</h2>
+          </div>
+          <span className="status-pill">{publicChannels.length}</span>
+        </div>
+        {publicChannels.length === 0 && !channelsError ? (
+          <div className="empty-card">
+            <h2>Открытых каналов пока нет</h2>
+            <p className="muted">Создайте первый публичный канал — его увидят другие зрители.</p>
+          </div>
+        ) : null}
+        <div className="channel-grid">
+          {publicChannels.map((channel) => (
+            <Link className="channel-card" href={`/channels/${channel.slug}`} key={channel.id}>
+              <ChannelAvatar name={channel.name} url={channel.avatarUrl} />
+              <div>
+                <h2>{channel.name}</h2>
+                <p className="muted">
+                  @{channel.slug} · {channel.memberCount} участн.
+                  {channel.role ? " · вы участник" : ""}
                 </p>
               </div>
             </Link>

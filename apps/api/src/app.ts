@@ -825,6 +825,10 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
     const { user } = await requireUser(request);
     return { channels: await watchStore.listChannels(user.id) };
   });
+  app.get("/v1/channels/public", async (request) => {
+    const { user } = await requireUser(request);
+    return { channels: await watchStore.listPublicChannels(user.id) };
+  });
   app.post("/v1/channels", async (request, reply) => {
     const { user } = await requireUser(request, true);
     const channel = await watchStore.createChannel(
