@@ -622,13 +622,20 @@ h2 {
 }
 .chat-list {
   display: flex;
-  min-height: 220px;
-  max-height: min(52vh, 520px);
+  min-height: 260px;
+  max-height: min(48vh, 500px);
   gap: 8px;
   flex-direction: column;
   overflow-y: auto;
-  margin: 0 -4px;
-  padding: 6px 4px 10px;
+  margin: 0;
+  padding: 12px;
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      color-mix(in srgb, var(--app-accent) 6%, transparent),
+      transparent 34%
+    ),
+    var(--app-bg);
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
@@ -638,7 +645,7 @@ h2 {
   max-width: min(86%, 520px);
   align-self: flex-start;
   border-radius: 6px 18px 18px;
-  padding: 8px 10px 9px;
+  padding: 8px 11px 9px;
   background: var(--app-surface-secondary);
   box-shadow: 0 1px 2px color-mix(in srgb, #000 9%, transparent);
 }
@@ -749,7 +756,13 @@ h2 {
   text-align: center;
 }
 .chat-empty-state span {
-  font-size: 2rem;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--app-surface-secondary);
+  font-size: 1.35rem;
 }
 .chat-empty-state p {
   margin: 8px 0 0;
@@ -760,7 +773,8 @@ h2 {
   gap: 8px;
   align-items: center;
   border-top: 1px solid color-mix(in srgb, var(--app-text) 8%, transparent);
-  padding-top: 12px;
+  padding: 10px 12px 12px;
+  background: var(--app-surface);
 }
 .chat-form input {
   min-width: 0;
@@ -903,7 +917,7 @@ h2 {
 
 /* Mobile room surface. The player stage changes position, never React identity. */
 .room-page-shell {
-  width: min(100%, 720px);
+  width: min(100%, 760px);
   padding-top: max(
     10px,
     calc(var(--tg-safe-area-inset-top) + var(--tg-content-safe-area-inset-top))
@@ -921,7 +935,7 @@ h2 {
   grid-template-columns: 42px minmax(0, 1fr) 42px;
   gap: 10px;
   align-items: center;
-  margin: 0 -6px 18px;
+  margin: 0 -6px 10px;
   padding: 8px 6px;
   border-bottom: 1px solid color-mix(in srgb, var(--app-text) 8%, transparent);
   background: color-mix(in srgb, var(--app-bg) 92%, transparent);
@@ -946,9 +960,10 @@ h2 {
   min-width: 0;
   text-align: center;
 }
-.room-topbar-title > strong {
+.room-topbar-title > h1 {
   display: block;
   overflow: hidden;
+  margin: 0;
   font-size: 0.95rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1046,17 +1061,18 @@ h2 {
   border-left-color: var(--app-muted);
 }
 .room-player-anchor {
-  min-height: 276px;
-  margin: 16px 0;
+  min-height: 0;
+  margin: 0 0 10px;
 }
 .room-player-stage {
   position: relative;
   z-index: 10;
-  border: 1px solid color-mix(in srgb, var(--app-text) 12%, transparent);
-  border-radius: 20px;
-  padding: 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px;
+  padding: 0;
   background: #090b10;
-  box-shadow: 0 18px 45px color-mix(in srgb, #000 24%, transparent);
+  box-shadow: 0 10px 30px color-mix(in srgb, #000 20%, transparent);
 }
 .room-player-stage .official-player-shell {
   margin: 0;
@@ -1067,21 +1083,30 @@ h2 {
 .room-player-stage .twitch-size-warning {
   color: #f6f7fa;
 }
+.room-player-stage .player-error {
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 16px;
+  padding: 20px;
+  background: #181b22;
+}
 .mini-player-actions {
+  position: absolute;
+  z-index: 12;
+  top: 10px;
+  right: 10px;
   display: flex;
   gap: 6px;
-  justify-content: flex-end;
-  padding: 2px 2px 7px;
 }
 .mini-player-actions button {
   display: grid;
   width: 32px;
   height: 32px;
   place-items: center;
-  border: 1px solid #3a3d45;
+  border: 1px solid rgb(255 255 255 / 24%);
   border-radius: 50%;
   padding: 0;
-  background: #181b22;
+  background: rgb(12 14 19 / 78%);
   color: #f6f7fa;
   cursor: pointer;
   font-size: 1rem;
@@ -1124,6 +1149,66 @@ h2 {
   display: grid;
   gap: 14px;
 }
+.chat-card {
+  gap: 0;
+  overflow: hidden;
+  margin-top: 0;
+  padding: 0;
+}
+.chat-card .chat-heading {
+  padding: 14px 15px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-text) 8%, transparent);
+}
+.chat-card .chat-heading h2 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 0.98rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-card .chat-heading > div {
+  min-width: 0;
+}
+.connection-dot {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--app-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.connection-dot::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #d78318;
+  content: "";
+}
+.connection-connected::before {
+  background: var(--app-success);
+}
+.connection-offline::before {
+  background: var(--tg-theme-destructive-text-color, #c43d4d);
+}
+.connection-notice {
+  margin: 0;
+  padding: 8px 14px;
+  background: color-mix(in srgb, #d78318 12%, var(--app-surface));
+  color: var(--app-muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+.room-ended-notice {
+  margin: 0;
+  padding: 9px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-text) 8%, transparent);
+  background: var(--app-surface-secondary);
+  color: var(--app-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
 .room-section-heading,
 .telegram-discussion-card {
   display: flex;
@@ -1158,6 +1243,21 @@ h2 {
   cursor: pointer;
   font-size: 1.15rem;
 }
+.chat-reactions {
+  border-top: 1px solid color-mix(in srgb, var(--app-text) 8%, transparent);
+  padding: 8px 12px 4px;
+}
+.chat-reactions .reaction-strip {
+  margin-top: 0;
+}
+.chat-reactions .reaction-strip button {
+  border: 0;
+  padding: 7px 2px;
+  background: var(--app-surface-secondary);
+}
+.chat-reactions .reaction-burst:empty {
+  display: none;
+}
 .reaction-burst {
   display: flex;
   min-height: 28px;
@@ -1177,7 +1277,8 @@ h2 {
 .system-event-list {
   display: grid;
   gap: 5px;
-  border-radius: 14px;
+  margin: 8px 12px 0;
+  border-radius: 12px;
   padding: 10px 12px;
   background: var(--app-surface-secondary);
 }

@@ -7,7 +7,7 @@ import { ChannelAvatar } from "../components/channel-avatar";
 import { useWatchRoom } from "../components/watchroom-provider";
 
 export default function HomePage() {
-  const { user, loading, error, logout, request } = useWatchRoom();
+  const { user, loading, loadingMessage, error, retryAuth, logout, request } = useWatchRoom();
   const [channels, setChannels] = useState<ChannelDto[]>([]);
   const [publicChannels, setPublicChannels] = useState<ChannelDto[]>([]);
   const [channelsError, setChannelsError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ export default function HomePage() {
       <main className="app-shell">
         <section className="loading-card">
           <span className="loading-spinner" />
-          <p>Входим через Telegram…</p>
+          <p>{loadingMessage}</p>
         </section>
       </main>
     );
@@ -41,6 +41,9 @@ export default function HomePage() {
         <section className="status-card">
           <h1>Не удалось войти</h1>
           <p className="muted">{error ?? "Откройте Mini App заново."}</p>
+          <button className="primary-button" type="button" onClick={retryAuth}>
+            Повторить
+          </button>
         </section>
       </main>
     );

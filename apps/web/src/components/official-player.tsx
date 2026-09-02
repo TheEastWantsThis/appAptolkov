@@ -119,22 +119,24 @@ export function OfficialPlayer({
       className={`official-player-shell${compact ? " official-player-compact" : ""}`}
       data-provider={source.provider}
     >
-      <div
-        className={`official-player-viewport viewport-${source.provider.toLowerCase()}`}
-        data-testid="provider-player"
-        ref={containerRef}
-      />
+      {embeddable !== false ? (
+        <div
+          className={`official-player-viewport viewport-${source.provider.toLowerCase()}`}
+          data-testid="provider-player"
+          ref={containerRef}
+        />
+      ) : null}
       {source.provider === "TWITCH" ? (
         <p className="twitch-size-warning">
           Для Twitch требуется область минимум 400×300. Откройте Mini App шире или используйте
           оригинальную страницу.
         </p>
       ) : null}
-      <div className="official-player-controls">
-        <span className="player-state" role="status">
-          {stateLabels[effectiveState]}
-        </span>
-        {pictureInPictureVideo ? (
+      <span className="sr-only" role="status">
+        {stateLabels[effectiveState]}
+      </span>
+      {pictureInPictureVideo ? (
+        <div className="official-player-controls">
           <button
             aria-label="Открыть системный режим картинка в картинке"
             className="secondary-button"
@@ -143,8 +145,8 @@ export function OfficialPlayer({
           >
             PiP
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
       {effectiveState === "AUTOPLAY_BLOCKED" ? (
         <p className="player-help">
           Telegram или браузер заблокировал программный запуск. Нажмите ▶ прямо на видео.

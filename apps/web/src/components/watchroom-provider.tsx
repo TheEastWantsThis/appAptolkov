@@ -22,7 +22,9 @@ interface WatchRoomContextValue {
   user: UserDto | null;
   accessToken: string | null;
   loading: boolean;
+  loadingMessage: string;
   error: string | null;
+  retryAuth(): void;
   logout(): Promise<void>;
   request<T>(path: string, init?: RequestInit): Promise<T>;
 }
@@ -34,7 +36,29 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (activeAccessToken) headers.set("authorization", `Bearer ${activeAccessToken}`);
   if (!["GET", "HEAD", "OPTIONS"].includes(method) && activeCsrfToken)
     headers.set("x-csrf-token", activeCsrfToken);
-  const response = await fetch(`${apiUrl}${path}`, { ...init, headers, credentials: "include" });
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort();
+  init.signal?.addEventListener("abort", abortFromCaller, { once: true });
+  const timeoutMs = path.startsWith("/v1/auth/") ? 60_000 : 30_000;
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${apiUrl}${path}`, {
+      ...init,
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+    });
+  } catch (reason: unknown) {
+    if (reason instanceof Error && reason.name === "AbortError")
+      throw new Error("Сервер не ответил вовремя. Нажмите «Повторить».");
+    if (reason instanceof TypeError)
+      throw new Error("Не удалось связаться с сервером. Проверьте интернет и нажмите «Повторить».");
+    throw reason;
+  } finally {
+    window.clearTimeout(timeout);
+    init.signal?.removeEventListener("abort", abortFromCaller);
+  }
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
       error?: { message?: string };
@@ -59,7 +83,9 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState("Подключаемся к Telegram…");
   const [error, setError] = useState<string | null>(null);
+  const [authAttempt, setAuthAttempt] = useState(0);
   const routeFromStartParam = useCallback(() => {
     const webApp = window.Telegram?.WebApp;
     const publicId = roomPublicIdFromTelegramStart({
@@ -74,6 +100,10 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
   }, [router]);
   useEffect(() => {
     let active = true;
+    const slowServerNotice = window.setTimeout(() => {
+      if (active)
+        setLoadingMessage("Запускаем сервер. Первый вход после простоя может занять до минуты…");
+    }, 2_500);
     async function authenticate() {
       const cachedCsrf = sessionStorage.getItem(csrfStorageKey) ?? "";
       const cachedAccessToken = sessionStorage.getItem(accessTokenStorageKey) ?? "";
@@ -122,14 +152,16 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
             );
         }
       } finally {
+        window.clearTimeout(slowServerNotice);
         if (active) setLoading(false);
       }
     }
     void authenticate();
     return () => {
       active = false;
+      window.clearTimeout(slowServerNotice);
     };
-  }, [routeFromStartParam]);
+  }, [authAttempt, routeFromStartParam]);
   useEffect(() => {
     if (!user) return;
     routeFromStartParam();
@@ -147,9 +179,24 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
     setError("Сессия завершена. Откройте Mini App заново для входа.");
     router.replace("/");
   }, [router]);
+  const retryAuth = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setLoadingMessage("Подключаемся к Telegram…");
+    setAuthAttempt((attempt) => attempt + 1);
+  }, []);
   const value = useMemo<WatchRoomContextValue>(
-    () => ({ user, accessToken, loading, error, logout, request: apiRequest }),
-    [user, accessToken, loading, error, logout],
+    () => ({
+      user,
+      accessToken,
+      loading,
+      loadingMessage,
+      error,
+      retryAuth,
+      logout,
+      request: apiRequest,
+    }),
+    [user, accessToken, loading, loadingMessage, error, retryAuth, logout],
   );
   return <WatchRoomContext.Provider value={value}>{children}</WatchRoomContext.Provider>;
 }

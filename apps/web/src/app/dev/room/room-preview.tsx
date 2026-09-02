@@ -4,7 +4,6 @@ import type { PlayerSource } from "@watchroom/shared";
 import { useState } from "react";
 
 import { OfficialPlayer } from "../../../components/official-player";
-import { RoomStatusStack } from "../../../components/room-status-stack";
 
 const source: PlayerSource = {
   provider: "YOUTUBE",
@@ -14,7 +13,7 @@ const source: PlayerSource = {
 };
 
 export function RoomPreview() {
-  const [mode, setMode] = useState<"normal" | "sticky" | "hidden">("normal");
+  const [mode, setMode] = useState<"normal" | "sticky">("normal");
   return (
     <main className="app-shell room-page-shell" data-testid="room-preview">
       <header className="room-topbar">
@@ -22,7 +21,7 @@ export function RoomPreview() {
           ←
         </button>
         <div className="room-topbar-title">
-          <strong>Ночной кинозал</strong>
+          <h1>Ночной кинозал</h1>
           <span>
             <span className="vod-badge">VOD</span>
             <span>● 12</span>
@@ -32,55 +31,75 @@ export function RoomPreview() {
           <summary aria-label="Открыть меню комнаты">•••</summary>
         </details>
       </header>
-      <section className="room-summary">
-        <div>
-          <p className="eyebrow">WatchRoom</p>
-          <h1>Ночной кинозал</h1>
-        </div>
-        <p className="muted">Смотрим вместе без лишнего шума</p>
-      </section>
-      <RoomStatusStack
-        connectionState="RECONNECTING"
-        paused
-        playerState="AUTOPLAY_BLOCKED"
-        roomStatus="LIVE"
-        playbackActorName="Анна"
-      />
       <div className="room-player-anchor">
         <section className={`room-player-stage player-mode-${mode}`} data-provider="YOUTUBE">
           <div className="mini-player-actions">
             {mode === "normal" ? (
-              <button type="button" onClick={() => setMode("sticky")}>
-                Свернуть
+              <button
+                aria-label="Закрепить компактный плеер"
+                title="Закрепить сверху"
+                type="button"
+                onClick={() => setMode("sticky")}
+              >
+                ⌃
               </button>
             ) : (
-              <button type="button" onClick={() => setMode("normal")}>
-                Развернуть
+              <button
+                aria-label="Развернуть плеер"
+                title="Развернуть"
+                type="button"
+                onClick={() => setMode("normal")}
+              >
+                ⛶
               </button>
             )}
-            <button type="button" onClick={() => setMode("hidden")}>
-              Закрыть
-            </button>
           </div>
           <OfficialPlayer compact={mode !== "normal"} embeddable={false} source={source} />
         </section>
       </div>
-      {mode === "hidden" ? (
-        <button className="restore-player-button" type="button" onClick={() => setMode("normal")}>
-          Вернуть плеер
-        </button>
-      ) : null}
-      <section className="now-watching-card">
-        <span>Сейчас смотрят</span>
-        <strong>Демо-видео</strong>
-        <small>WatchRoom</small>
-      </section>
-      <section className="reaction-strip" aria-label="Реакции">
-        {["👍", "❤️", "😂", "😮", "🔥", "👏"].map((reaction) => (
-          <button aria-label={`Отправить реакцию ${reaction}`} key={reaction} type="button">
-            {reaction}
+      <section className="room-panel chat-card">
+        <div className="chat-heading">
+          <div>
+            <h2>Демо-видео</h2>
+            <p className="muted">WatchRoom</p>
+          </div>
+          <span className="connection-dot connection-connected">2 онлайн</span>
+        </div>
+        <div className="chat-list">
+          <article className="chat-message">
+            <div className="chat-message-meta">
+              <span className="chat-avatar">А</span>
+              <strong>Анна</strong>
+              <small>22:10</small>
+            </div>
+            <p>Начинаем через минуту 👋</p>
+          </article>
+          <article className="chat-message chat-message-own">
+            <div className="chat-message-meta">
+              <strong>Вы</strong>
+              <small>22:11</small>
+            </div>
+            <p>Я готов 🔥</p>
+          </article>
+        </div>
+        <div className="chat-reactions">
+          <div className="reaction-strip" aria-label="Реакции">
+            {["👍", "❤️", "😂", "😮", "🔥", "👏"].map((reaction) => (
+              <button aria-label={`Отправить реакцию ${reaction}`} key={reaction} type="button">
+                {reaction}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form className="chat-form">
+          <label className="sr-only" htmlFor="preview-message">
+            Сообщение
+          </label>
+          <input id="preview-message" placeholder="Сообщение…" />
+          <button aria-label="Отправить сообщение" className="chat-send-button" type="button">
+            ➤
           </button>
-        ))}
+        </form>
       </section>
       <section className="room-panel">
         <div className="room-section-heading">
@@ -97,30 +116,6 @@ export function RoomPreview() {
             <strong>зритель</strong>
           </li>
         </ul>
-      </section>
-      <section className="room-panel chat-card">
-        <div>
-          <h2>Чат комнаты</h2>
-          <p className="muted">Максимум 40 сообщений, хранение до 24 часов.</p>
-        </div>
-        <div className="chat-list">
-          <article className="chat-message">
-            <div>
-              <strong>Анна</strong>
-              <small>22:10</small>
-            </div>
-            <p>Начинаем через минуту 👋</p>
-          </article>
-        </div>
-        <form className="chat-form">
-          <label className="sr-only" htmlFor="preview-message">
-            Сообщение
-          </label>
-          <input id="preview-message" placeholder="Сообщение…" />
-          <button className="primary-button" type="button">
-            Отправить
-          </button>
-        </form>
       </section>
     </main>
   );

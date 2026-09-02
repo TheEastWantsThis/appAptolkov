@@ -24,7 +24,7 @@ import { io, type Socket } from "socket.io-client";
 import { ShareRoom } from "../../../components/share-room";
 import { TelegramChatBinding } from "../../../components/telegram-chat-binding";
 import { OfficialPlayer } from "../../../components/official-player";
-import { RoomStatusStack, type RoomConnectionState } from "../../../components/room-status-stack";
+import type { RoomConnectionState } from "../../../components/room-status-stack";
 import type { PlayerAdapter } from "../../../player/types";
 import { shouldReloadTwitchLiveEdge } from "../../../player/live-edge";
 import { useWatchRoom } from "../../../components/watchroom-provider";
@@ -36,7 +36,15 @@ type PlayerMode = "NORMAL" | "STICKY";
 export default function RoomPage() {
   const { publicId } = useParams<{ publicId: string }>();
   const router = useRouter();
-  const { accessToken, loading, request, user } = useWatchRoom();
+  const {
+    accessToken,
+    loading,
+    loadingMessage,
+    error: authError,
+    retryAuth,
+    request,
+    user,
+  } = useWatchRoom();
   const [room, setRoom] = useState<RoomDto | null>(null);
   const [preview, setPreview] = useState<RoomPreviewDto | null>(null);
   const [awaitingJoin, setAwaitingJoin] = useState(false);
@@ -58,7 +66,6 @@ export default function RoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<RoomConnectionState>("CONNECTING");
-  const [playerState, setPlayerState] = useState<PlayerState>("LOADING");
   const [playerMode, setPlayerMode] = useState<PlayerMode>("NORMAL");
   const [sourceProvider, setSourceProvider] = useState<"YOUTUBE" | "TWITCH">("YOUTUBE");
   const [sourceKind, setSourceKind] = useState<"VIDEO" | "VOD" | "LIVE">("VIDEO");
@@ -209,7 +216,6 @@ export default function RoomPage() {
   );
   const handlePlayerState = useCallback(
     (state: PlayerState) => {
-      setPlayerState(state);
       if (state === "ERROR") socketRef.current?.emit("telemetry:event", { type: "PLAYER_ERROR" });
       if (state === "AUTOPLAY_BLOCKED")
         socketRef.current?.emit("telemetry:event", { type: "AUTOPLAY_BLOCKED" });
@@ -666,7 +672,30 @@ export default function RoomPage() {
     }
   }
 
-  if (loading || (!room && !preview && !locked && !error))
+  if (loading)
+    return (
+      <main className="app-shell">
+        <section className="loading-card">
+          <span className="loading-spinner" />
+          <p>{loadingMessage}</p>
+        </section>
+      </main>
+    );
+
+  if (authError || !user)
+    return (
+      <main className="app-shell">
+        <section className="status-card">
+          <h1>Не удалось войти</h1>
+          <p className="muted">{authError ?? "Telegram не подтвердил вход."}</p>
+          <button className="primary-button" type="button" onClick={retryAuth}>
+            Повторить
+          </button>
+        </section>
+      </main>
+    );
+
+  if (!room && !preview && !locked && !error)
     return (
       <main className="app-shell">
         <section className="loading-card">Открываем комнату…</section>
@@ -766,10 +795,9 @@ export default function RoomPage() {
     LIVE: ["LIVE", "ENDED"],
     ENDED: ["ENDED"],
   }[room.status];
-  const live = room.sourceKind === "LIVE" || room.status === "LIVE";
+  const live = room.sourceKind === "LIVE";
   const onlineSet = new Set(onlineUserIds);
   const onlineMembers = members.filter((member) => onlineSet.has(member.userId));
-  const playbackActor = members.find((member) => member.userId === room.playback.actorUserId);
   const muteRemainingSeconds = chatRestriction
     ? Math.max(0, Math.ceil((new Date(chatRestriction.mutedUntil).getTime() - clockMs) / 1_000))
     : 0;
@@ -787,8 +815,9 @@ export default function RoomPage() {
           ←
         </Link>
         <div className="room-topbar-title">
-          <strong>{room.name}</strong>
+          <h1>{room.name}</h1>
           <span>
+            {room.visibility === "PRIVATE" ? <span aria-label="Закрытая комната">🔒</span> : null}
             <span className={live ? "live-badge" : "vod-badge"}>{live ? "LIVE" : "VOD"}</span>
             <span aria-label={`${room.viewerCount} зрителей`}>● {room.viewerCount}</span>
           </span>
@@ -806,25 +835,6 @@ export default function RoomPage() {
           </div>
         </details>
       </header>
-
-      <section className="room-summary" aria-labelledby="room-heading">
-        <div>
-          <p className="eyebrow">
-            {room.cachedCreatorName || `${room.sourceProvider} · ${room.sourceKind}`}
-          </p>
-          <h1 id="room-heading">{room.name}</h1>
-        </div>
-        {room.visibility === "PRIVATE" ? <span className="status-pill">🔒 Закрытая</span> : null}
-        {room.description ? <p className="muted">{room.description}</p> : null}
-      </section>
-
-      <RoomStatusStack
-        connectionState={connectionState}
-        paused={room.playback.paused}
-        {...(playbackActor ? { playbackActorName: playbackActor.firstName } : {})}
-        playerState={room.cachedEmbeddable === false ? "ERROR" : playerState}
-        roomStatus={room.status}
-      />
 
       <div className="room-player-anchor" ref={playerAnchorRef}>
         <section
@@ -867,11 +877,30 @@ export default function RoomPage() {
       <section className="room-panel chat-card">
         <div className="chat-heading">
           <div>
-            <h2>Чат</h2>
-            <p className="muted">До 40 сообщений · удаляются через 24 часа</p>
+            <h2>{room.nowWatchingText || room.cachedTitle || "Чат комнаты"}</h2>
+            <p className="muted">
+              {room.cachedCreatorName || `${room.sourceProvider} · ${room.sourceKind}`}
+            </p>
           </div>
-          <span className="chat-online-dot">{onlineMembers.length} онлайн</span>
+          <span
+            className={`connection-dot connection-${connectionState.toLowerCase()}`}
+            title={connectionState === "CONNECTED" ? "Соединение установлено" : "Переподключение"}
+          >
+            {onlineMembers.length} онлайн
+          </span>
         </div>
+        {connectionState !== "CONNECTED" ? (
+          <p className="connection-notice" role="status">
+            {connectionState === "RECONNECTING"
+              ? "Переподключаемся к комнате…"
+              : "Соединение временно недоступно"}
+          </p>
+        ) : null}
+        {room.status === "ENDED" ? (
+          <p className="room-ended-notice" role="status">
+            Комната завершена
+          </p>
+        ) : null}
         {systemEvents.length ? (
           <div className="system-event-list" aria-label="События комнаты" aria-live="polite">
             {systemEvents.slice(-8).map((event) => {
@@ -934,6 +963,29 @@ export default function RoomPage() {
             })
           )}
         </div>
+        {room.reactionsEnabled ? (
+          <div className="chat-reactions">
+            <div className="reaction-strip" aria-label="Реакции">
+              {(["👍", "❤️", "😂", "😮", "🔥", "👏"] as const).map((reaction) => (
+                <button
+                  aria-label={`Отправить реакцию ${reaction}`}
+                  key={reaction}
+                  type="button"
+                  onClick={() => sendReaction(reaction)}
+                >
+                  {reaction}
+                </button>
+              ))}
+            </div>
+            <div className="reaction-burst" aria-live="polite" aria-label="Последние реакции">
+              {reactions.map((reaction) => (
+                <span key={`${reaction.actorUserId}:${reaction.createdAtServerMs}`}>
+                  {reaction.reaction}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <form className="chat-form" onSubmit={(event) => void sendMessage(event)}>
           <label className="sr-only" htmlFor="room-chat-message">
             Сообщение
@@ -964,44 +1016,12 @@ export default function RoomPage() {
         ) : null}
       </section>
 
-      <section className="now-watching-card">
-        <span>Сейчас смотрят</span>
-        <strong>{room.nowWatchingText || room.cachedTitle || "Источник выбран"}</strong>
-        <small>{room.cachedCreatorName || room.sourceId}</small>
-      </section>
-
       {live ? (
         <p className="live-latency-note">
           LIVE синхронизируется приблизительно: задержка у зрителей может отличаться. Twitch Live
           нельзя перематывать.
         </p>
       ) : null}
-
-      {room.reactionsEnabled ? (
-        <>
-          <section className="reaction-strip" aria-label="Реакции">
-            {(["👍", "❤️", "😂", "😮", "🔥", "👏"] as const).map((reaction) => (
-              <button
-                aria-label={`Отправить реакцию ${reaction}`}
-                key={reaction}
-                type="button"
-                onClick={() => sendReaction(reaction)}
-              >
-                {reaction}
-              </button>
-            ))}
-          </section>
-          <div className="reaction-burst" aria-live="polite" aria-label="Последние реакции">
-            {reactions.map((reaction) => (
-              <span key={`${reaction.actorUserId}:${reaction.createdAtServerMs}`}>
-                {reaction.reaction}
-              </span>
-            ))}
-          </div>
-        </>
-      ) : (
-        <p className="muted reactions-disabled">Реакции отключены владельцем.</p>
-      )}
 
       <section className="room-panel">
         <div className="room-section-heading">
