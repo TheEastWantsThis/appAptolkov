@@ -20,7 +20,7 @@
 
 ## Последние закрытые дефекты
 
-- Мобильная Telegram-аутентификация больше не зависит от cross-site cookie Vercel→Render: opaque session token хранится только в `sessionStorage`, передаётся как Bearer для REST и Socket.IO auth, остаётся hashed/revocable на сервере; cookie/CSRF сохранены как fallback. Клиент до 1,5 секунды ожидает позднюю инициализацию Telegram `initData` и показывает конкретную ошибку при его отсутствии.
+- Мобильная Telegram-аутентификация больше не зависит от cross-site cookie Vercel→Render: opaque session token хранится только в `sessionStorage`, передаётся как Bearer для REST и Socket.IO auth, остаётся hashed/revocable на сервере; cookie/CSRF сохранены как fallback. `Authorization` включён в точный CORS allowlist. Клиент до 1,5 секунды ожидает позднюю инициализацию Telegram `initData` и показывает конкретную ошибку при его отсутствии.
 - Комната упрощена под мобильный сценарий: отдельные start/play/pause/seek controls удалены, разрешённые play/pause теперь отправляются из событий официального плеера; close у mini-player удалён, режимы переключаются компактными icon-кнопками.
 - Чат перенесён сразу под видео, получил Telegram-подобные bubbles, собственные сообщения справа, автопрокрутку, компактный composer и удаление только через меню сообщения.
 - Deep link routing теперь учитывает signed `start_param`, query/hash launch parameters и `initDataUnsafe.start_param` только как недоверенную навигационную подсказку; доступ к комнате по-прежнему проверяет сервер.
@@ -42,7 +42,7 @@
 | ------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `pnpm lint`                     | PASS                                                                                              |
 | `pnpm typecheck`                | PASS                                                                                              |
-| `pnpm test`                     | PASS: shared 41, API 39, web 20 = 100; PostgreSQL-gated файл skip без URL                         |
+| `pnpm test`                     | PASS: shared 41, API 40, web 20 = 101; PostgreSQL-gated файл skip без URL                         |
 | `pnpm test:e2e`                 | PASS: 2 Chromium mobile сценария, два isolated browser contexts                                   |
 | `pnpm build`                    | PASS: shared/API/Next.js production                                                               |
 | `pnpm audit --audit-level high` | PASS: `No known vulnerabilities found`                                                            |

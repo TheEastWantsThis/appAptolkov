@@ -95,4 +95,26 @@ describe("health endpoints", () => {
 
     expect(response.statusCode).toBe(413);
   });
+
+  it("allows the mobile bearer session header in a trusted CORS preflight", async () => {
+    const database: DatabaseHealth = {
+      ping: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+    };
+    runtime = createApi(config, { database, store: new MemoryWatchRoomStore() });
+
+    const response = await runtime.app.inject({
+      method: "OPTIONS",
+      url: "/v1/auth/session",
+      headers: {
+        origin: config.WEB_ORIGIN,
+        "access-control-request-method": "GET",
+        "access-control-request-headers": "authorization",
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe(config.WEB_ORIGIN);
+    expect(response.headers["access-control-allow-headers"]).toContain("authorization");
+  });
 });

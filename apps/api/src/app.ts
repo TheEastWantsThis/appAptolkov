@@ -163,7 +163,7 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
   void app.register(cors, {
     origin: config.WEB_ORIGIN,
     credentials: true,
-    allowedHeaders: ["content-type", "x-csrf-token", "x-room-grant"],
+    allowedHeaders: ["authorization", "content-type", "x-csrf-token", "x-room-grant"],
   });
   void app.register(cookie);
   const io = new SocketIoServer(app.server, {
