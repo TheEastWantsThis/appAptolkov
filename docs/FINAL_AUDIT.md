@@ -1,8 +1,8 @@
 # Финальный независимый аудит WatchRoom
 
-Дата: 31 августа 2026 года.
+Дата: 2 сентября 2026 года.
 
-Итог: **NOT READY** для приглашения внешних пользователей. Кодовая база является локальным release candidate, но обязательные внешние доказательства — production deploy, Telegram Android/iOS/Desktop, реальные provider embeds, текущая восьмая миграция на чистой БД и restore rehearsal — ещё не получены. Решение меняется на `READY WITH LISTED LIMITATIONS` только после release gates ниже.
+Итог: **NOT READY** для приглашения внешних пользователей, но готово для проверки владельцем. Production Vercel/Render/PostgreSQL развёрнут, девять миграций и full-stack PostgreSQL/Socket.IO gate прошли в CI, network smoke зелёный. Остаются внешние release gates: повторный реальный мобильный Telegram login после Bearer/CORS fix, Android/iOS/Desktop, официальные provider embeds, Telegram webhook/requestChat и restore rehearsal.
 
 ## Метод
 
@@ -10,7 +10,7 @@
 
 ## 1. Полностью реализовано
 
-- Официальная server-side проверка raw Telegram `initData`, TTL `auth_date`, replay protection, opaque HttpOnly session, CSRF, logout/revocation и production-запрет mock auth.
+- Официальная server-side проверка raw Telegram `initData`, TTL `auth_date`, replay protection, opaque hashed/revocable session, HttpOnly cookie fallback, mobile Bearer/CORS path, CSRF для cookie, logout/revocation и production-запрет mock auth.
 - User и внутренние Channel: owner/moderator/member, CRUD, добавление по ранее подтверждённому Telegram username, immutable owner и server-side authorization.
 - PUBLIC/PRIVATE Room, случайный `publicId`, Argon2id, password revision, room grant, throttling, lifecycle `DRAFT → WAITING → LIVE → ENDED` без resurrection.
 - Ограниченный pre-join preview DTO: безопасные metadata, live viewer count и не более трёх display names; полный DTO доступен только после join/grant.
@@ -31,12 +31,12 @@
 | Provider metadata/embed | Официальные adapters и API clients готовы; YouTube quota, Twitch credentials, региональные/cookie/owner restrictions подтверждаются только на production domain.                                                                                                                                                            |
 | Telegram UX             | Методы и fallbacks реализованы, но `shareMessage`, `requestChat`, compact/fullscreen, viewport и возврат после `openTelegramLink` не проверены на трёх реальных клиентах.                                                                                                                                                   |
 | PiP                     | Feature detection корректен; cross-origin YouTube/Twitch обычно не дают доступ к underlying video, поэтому это лишь progressive enhancement.                                                                                                                                                                                |
-| Deployment              | Dockerfiles, Render Blueprint, migration step, smoke script, backup/rollback runbooks готовы. Ресурсы и URL не созданы из-за отсутствия owner credentials/domain/secrets.                                                                                                                                                   |
+| Deployment              | Vercel web, Render API/WSS и PostgreSQL 17 работают; health/CSP/WSS/CORS smoke пройден. Render Free может просыпаться до 50 секунд. Backup/restore runbook есть, но restore rehearsal ещё не выполнен.                                                                                                                      |
 
 ## 3. Отсутствует
 
-- Фактический production deploy и реальные HTTPS/WSS ссылки.
-- Telegram Main Mini App/menu/webhook configuration для production bot.
+- Подтверждение мобильного входа владельцем на уже опубликованной Bearer/CORS ревизии.
+- Подтверждённый Telegram webhook для `requestChat`/inline fallback; Main Mini App уже открывает опубликованный web.
 - Device matrix Android/iOS/Desktop и четыре реальных provider smoke на production domain.
 - Backup/restore rehearsal и записанные фактические RPO/RTO.
 - Redis/distributed coordination — намеренно вне single-instance MVP.
@@ -53,14 +53,14 @@
 
 ## 5. Безопасность
 
-Открытых Critical/High дефектов в проверенном коде не найдено. Dependency audit: `No known vulnerabilities found`.
+Открытых Critical/High дефектов в проверенном коде не найдено. Повторный dependency audit обнаружил High advisory в транзитивном `mysql2@3.15.3` из Prisma; workspace override зафиксировал `mysql2@3.22.0`, после чего audit: `No known vulnerabilities found`. WatchRoom использует PostgreSQL, но уязвимая необязательная зависимость всё равно не оставлена.
 
 Остаточные Medium:
 
 - production CSP содержит `'unsafe-inline'` для Next/Telegram совместимости; источники ограничены allowlist, nonce/hash rollout назначен до public beta;
 - in-memory limiter/presence/dedupe безопасны только при одном API instance;
 - self-service удаления аккаунта нет, до закрытого теста необходима ручная privacy-процедура;
-- восьмая migration и расширенный PostgreSQL release gate должны пройти в CI/чистой БД: локальный Docker Desktop не стартовал из-за недоступного stale AF_UNIX socket;
+- Bearer token временного cross-site deployment доступен JavaScript в `sessionStorage`; CSP, TTL, server revocation и отсутствие token в URL/логах уменьшают риск, но целевой same-site HttpOnly cookie безопаснее;
 - реальная provider/device поверхность не прошла security smoke.
 
 Production server build удаляет модуль dev-auth; browser bundle и production API artifact не содержат `watchroom_dev`/`mock:` implementation. Конфигурация дополнительно отклоняет `MOCK_TELEGRAM_AUTH=true` в production.
@@ -83,7 +83,7 @@ Production server build удаляет модуль dev-auth; browser bundle и 
 ## 9. Недостаточно проверено
 
 - единый browser → real API → PostgreSQL → Socket.IO e2e;
-- current migration `202608310008_abuse_review_workflow` на чистой PostgreSQL;
+- длительный authenticated mobile session после suspend/activate на реальном Telegram WebView;
 - reconnect/rolling deploy и длительный soak;
 - production CSP console на Telegram clients;
 - provider autoplay/error/cookie/region matrix;
@@ -91,30 +91,30 @@ Production server build удаляет модуль dev-auth; browser bundle и 
 
 ## Фактические команды
 
-| Проверка                        | Результат                                                                                                                                      |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm lint`                     | PASS                                                                                                                                           |
-| `pnpm typecheck`                | PASS, strict shared/api/web                                                                                                                    |
-| `pnpm test`                     | PASS: 20 файлов, 92 теста; 1 PostgreSQL-gated файл пропущен без `TEST_DATABASE_URL`                                                            |
-| `pnpm test:e2e`                 | PASS: 2 Chromium mobile сценария                                                                                                               |
-| `pnpm build`                    | PASS: shared, API, Next.js production                                                                                                          |
-| `pnpm audit --audit-level high` | PASS: no known vulnerabilities                                                                                                                 |
-| `docker compose config --quiet` | PASS                                                                                                                                           |
-| PostgreSQL release gate         | Ранее PASS на чистой PostgreSQL 17 для миграций 1–7; gate расширен abuse workflow, но локальный повтор заблокирован неисправностью Docker host |
-| Secret/artifact scan            | PASS для реальных secret patterns; найденные DSN — только test/example credentials                                                             |
+| Проверка                        | Результат                                                                                                |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `pnpm lint`                     | PASS                                                                                                     |
+| `pnpm typecheck`                | PASS, strict shared/api/web                                                                              |
+| `pnpm test`                     | PASS: shared 41, API 40, web 20 = 101; 1 PostgreSQL-gated файл локально пропущен без `TEST_DATABASE_URL` |
+| `pnpm test:e2e`                 | PASS: 2 Chromium mobile сценария                                                                         |
+| `pnpm build`                    | PASS: shared, API, Next.js production                                                                    |
+| `pnpm audit --audit-level high` | PASS: no known vulnerabilities                                                                           |
+| `docker compose config --quiet` | PASS                                                                                                     |
+| PostgreSQL release gate         | PASS в GitHub CI: все 9 миграций на пустой PostgreSQL 17 и PostgreSQL + Socket.IO full-stack test        |
+| Secret/artifact scan            | PASS для реальных secret patterns; найденные DSN — только test/example credentials                       |
 
 ## Приоритеты до смены решения
 
-| Приоритет | Размер | Критерий приёмки                                                                                                                                               |
-| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0        | S      | CI применяет все 8 migrations на пустой PostgreSQL 17 и `test:postgres` проходит расширенный public/private/sync/concurrent-chat/abuse journey.                |
-| P0        | M      | Созданы HTTPS/WSS services, Telegram webhook/menu; production smoke подтверждает URL, API readiness, authenticated Socket.IO и минимум один официальный embed. |
-| P0        | M      | Android/iOS/Desktop проходят startapp/compact/share/requestChat/autoplay/return-state checklist; результаты записаны без секретов.                             |
-| P0        | S      | Backup восстановлен в отдельную БД; зафиксированы RPO/RTO и rollback rehearsal.                                                                                |
-| P1        | M      | Добавлен единый non-mocked browser full-stack e2e либо текущие два gates формально приняты release owner как эквивалент.                                       |
-| P1        | M      | CSP nonce/hash prototype устраняет script `'unsafe-inline'` без поломки Telegram/players.                                                                      |
-| P2        | M      | Room page разделена и добавлены soak/reconnect-storm tests.                                                                                                    |
+| Приоритет | Размер | Критерий приёмки                                                                                                                                |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0        | S      | Владелец повторно открывает Mini App с телефона и подтверждает login, создание публичного канала, комнаты и вход по `startapp=room_<publicId>`. |
+| P0        | M      | Подтверждены Telegram webhook/requestChat и минимум по одному реальному YouTube/Twitch embed на production domain.                              |
+| P0        | M      | Android/iOS/Desktop проходят startapp/compact/share/requestChat/autoplay/return-state checklist; результаты записаны без секретов.              |
+| P0        | S      | Backup восстановлен в отдельную БД; зафиксированы RPO/RTO и rollback rehearsal.                                                                 |
+| P1        | M      | Добавлен единый non-mocked browser full-stack e2e либо текущие два gates формально приняты release owner как эквивалент.                        |
+| P1        | M      | CSP nonce/hash prototype устраняет script `'unsafe-inline'` без поломки Telegram/players.                                                       |
+| P2        | M      | Room page разделена и добавлены soak/reconnect-storm tests.                                                                                     |
 
 ## Решение
 
-**NOT READY** — единственная причина решения теперь не незакрытые продуктовые P0 в коде, а отсутствие проверяемого production окружения и внешних release evidence. После выполнения четырёх P0 выше допустимо `READY WITH LISTED LIMITATIONS` для 10–20 приглашённых пользователей.
+**NOT READY** для 10–20 приглашённых пользователей — продуктовый код и production network готовы, но реальный mobile/provider/restore evidence ещё не закрыт. После P0 device/provider и restore gates решение меняется на `READY WITH LISTED LIMITATIONS`.
