@@ -57,6 +57,21 @@ async function connected(url: string, cookie: string): Promise<Socket> {
   return socket;
 }
 
+async function connectedWithAccessToken(url: string, accessToken: string): Promise<Socket> {
+  const socket = createClient(url, {
+    auth: { accessToken },
+    extraHeaders: { origin: config.WEB_ORIGIN },
+    forceNew: true,
+    reconnection: false,
+    transports: ["websocket"],
+  });
+  await new Promise<void>((resolve, reject) => {
+    socket.once("connect", resolve);
+    socket.once("connect_error", reject);
+  });
+  return socket;
+}
+
 async function emitAck(
   socket: Socket,
   event: string,
@@ -145,7 +160,10 @@ describe("Socket.IO realtime integration", () => {
     await runtime.app.listen({ host: "127.0.0.1", port: 0 });
     const address = runtime.app.server.address();
     if (!address || typeof address === "string") throw new Error("TEST_SERVER_ADDRESS_MISSING");
-    const socket = await connected(`http://127.0.0.1:${address.port}`, cookieOf(viewerAuth));
+    const socket = await connectedWithAccessToken(
+      `http://127.0.0.1:${address.port}`,
+      viewerAuth.json().accessToken as string,
+    );
     clients.push(socket);
     const publicId = created.json().room.publicId as string;
     expect(await emitAck(socket, "room:join", { publicId, grantToken: null })).toMatchObject({

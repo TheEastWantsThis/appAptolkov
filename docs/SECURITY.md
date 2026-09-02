@@ -9,7 +9,7 @@
 - строгий разбор raw initData с запретом duplicate keys, constant-time HMAC compare и окном `auth_date` 5 минут;
 - одноразовый SHA-256 replay digest, unique `telegramId` и обновляемый кеш Telegram-профиля;
 - 256-bit opaque session и CSRF tokens; в БД только SHA-256 digests, TTL сессии 12 часов;
-- `HttpOnly` session cookie; production cross-site test topology uses `Secure; SameSite=None; Partitioned`, exact Origin + CSRF для мутаций; same-site production target may use `SameSite=Lax`;
+- `HttpOnly` session cookie для same-site deployment; cross-site closed test использует opaque Bearer из `sessionStorage`, exact Origin для мутаций и тот же hashed/revocable server session;
 - один session lookup для HTTP и Socket.IO, блокировка User status учитывается при lookup;
 - локальный auth rate limit 10 попыток/минуту на IP; перед горизонтальным масштабированием его нужно заменить общим адаптером;
 - owner-only update/delete и уникальный нормализованный slug; приватный канал не раскрывается постороннему;
@@ -99,10 +99,10 @@
 ## Сессии и cookies
 
 - 256-bit random opaque token; в DB только SHA-256 token digest (токен уже высокоэнтропийный, password KDF не нужен).
-- Целевая production-топология размещает web/API на одном registrable domain и использует `Secure; HttpOnly; SameSite=Lax`. Текущий Vercel/Render closed-test deploy использует разные sites, поэтому cookie имеет `Secure; HttpOnly; SameSite=None; Partitioned`, host-only Path и bounded Max-Age; exact Origin и CSRF остаются обязательными. Telegram iOS/Android/Desktop cookie compatibility является device gate.
+- Целевая production-топология размещает web/API на одном registrable domain и использует `Secure; HttpOnly; SameSite=Lax`. Текущий Vercel/Render closed-test deploy использует разные sites: cookie остаётся совместимым fallback, а основной мобильный путь — 256-bit opaque Bearer в `sessionStorage`, `Authorization` и Socket.IO auth. В БД хранится только SHA-256 digest; token отсутствует в URL и логах. Exact Origin обязателен для мутаций, CSRF обязателен для cookie-пути.
 - Access session короткая (например 12 часов) с idle timeout; повторный Telegram auth бесшовно обновляет её при свежем initData.
 - Logout/revoke немедленно инвалидирует DB record и активные sockets.
-- Все HTTP mutating routes требуют CSRF token/origin; socket command auth берётся из server-side session, не из переданного user ID.
+- Все HTTP mutating routes требуют exact Origin; cookie-аутентификация также требует CSRF. Socket command auth берётся из server-side session по cookie/Bearer, не из переданного user ID.
 
 ## Валидация источников
 

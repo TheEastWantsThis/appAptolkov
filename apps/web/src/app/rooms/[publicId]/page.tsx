@@ -36,7 +36,7 @@ type PlayerMode = "NORMAL" | "STICKY";
 export default function RoomPage() {
   const { publicId } = useParams<{ publicId: string }>();
   const router = useRouter();
-  const { loading, request, user } = useWatchRoom();
+  const { accessToken, loading, request, user } = useWatchRoom();
   const [room, setRoom] = useState<RoomDto | null>(null);
   const [preview, setPreview] = useState<RoomPreviewDto | null>(null);
   const [awaitingJoin, setAwaitingJoin] = useState(false);
@@ -301,6 +301,7 @@ export default function RoomPage() {
   useEffect(() => {
     if (!roomId) return;
     const socket = io(websocketUrl, {
+      ...(accessToken ? { auth: { accessToken } } : {}),
       withCredentials: true,
       transports: ["websocket", "polling"],
     });
@@ -477,7 +478,7 @@ export default function RoomPage() {
       socket.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
     };
-  }, [applyRemotePlayback, grantToken, publicId, roomId, user?.id]);
+  }, [accessToken, applyRemotePlayback, grantToken, publicId, roomId, user?.id]);
 
   const refreshRoom = useCallback(async () => load(grantToken, true), [grantToken, load]);
 

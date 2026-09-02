@@ -15,9 +15,12 @@ import { roomPublicIdFromTelegramStart } from "../lib/telegram-start";
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 const csrfStorageKey = "watchroom.csrf";
+const accessTokenStorageKey = "watchroom.access-token";
 let activeCsrfToken = "";
+let activeAccessToken = "";
 interface WatchRoomContextValue {
   user: UserDto | null;
+  accessToken: string | null;
   loading: boolean;
   error: string | null;
   logout(): Promise<void>;
@@ -28,6 +31,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = init.method?.toUpperCase() ?? "GET";
   const headers = new Headers(init.headers);
   if (init.body) headers.set("content-type", "application/json");
+  if (activeAccessToken) headers.set("authorization", `Bearer ${activeAccessToken}`);
   if (!["GET", "HEAD", "OPTIONS"].includes(method) && activeCsrfToken)
     headers.set("x-csrf-token", activeCsrfToken);
   const response = await fetch(`${apiUrl}${path}`, { ...init, headers, credentials: "include" });
@@ -40,9 +44,20 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
+
+async function readTelegramInitData(): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const initData = window.Telegram?.WebApp.initData ?? "";
+    if (initData) return initData;
+    await new Promise((resolve) => window.setTimeout(resolve, 75));
+  }
+  return "";
+}
+
 export function WatchRoomProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<UserDto | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const routeFromStartParam = useCallback(() => {
@@ -61,24 +76,43 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
     let active = true;
     async function authenticate() {
       const cachedCsrf = sessionStorage.getItem(csrfStorageKey) ?? "";
+      const cachedAccessToken = sessionStorage.getItem(accessTokenStorageKey) ?? "";
       activeCsrfToken = cachedCsrf;
+      activeAccessToken = cachedAccessToken;
       try {
-        if (!cachedCsrf) throw new Error("CSRF bootstrap required");
+        if (!cachedAccessToken && !cachedCsrf) throw new Error("Session bootstrap required");
         const session = await apiRequest<{ user: UserDto }>("/v1/auth/session");
         if (active) {
           setUser(session.user);
+          setAccessToken(cachedAccessToken || null);
           routeFromStartParam();
         }
       } catch {
+        activeAccessToken = "";
+        activeCsrfToken = "";
+        sessionStorage.removeItem(accessTokenStorageKey);
+        sessionStorage.removeItem(csrfStorageKey);
         try {
-          const auth = await apiRequest<{ csrfToken: string; user: UserDto }>("/v1/auth/telegram", {
+          const initData = await readTelegramInitData();
+          if (!initData)
+            throw new Error(
+              "Telegram не передал данные входа. Полностью закройте Mini App и откройте его кнопкой бота ещё раз.",
+            );
+          const auth = await apiRequest<{
+            accessToken: string;
+            csrfToken: string;
+            user: UserDto;
+          }>("/v1/auth/telegram", {
             method: "POST",
-            body: JSON.stringify({ initData: window.Telegram?.WebApp.initData ?? "" }),
+            body: JSON.stringify({ initData }),
           });
+          activeAccessToken = auth.accessToken;
           activeCsrfToken = auth.csrfToken;
+          sessionStorage.setItem(accessTokenStorageKey, auth.accessToken);
           sessionStorage.setItem(csrfStorageKey, auth.csrfToken);
           if (active) {
             setUser(auth.user);
+            setAccessToken(auth.accessToken);
             routeFromStartParam();
           }
         } catch (authError: unknown) {
@@ -105,14 +139,17 @@ export function WatchRoomProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await apiRequest("/v1/auth/logout", { method: "POST", body: "{}" });
     activeCsrfToken = "";
+    activeAccessToken = "";
     sessionStorage.removeItem(csrfStorageKey);
+    sessionStorage.removeItem(accessTokenStorageKey);
     setUser(null);
+    setAccessToken(null);
     setError("Сессия завершена. Откройте Mini App заново для входа.");
     router.replace("/");
   }, [router]);
   const value = useMemo<WatchRoomContextValue>(
-    () => ({ user, loading, error, logout, request: apiRequest }),
-    [user, loading, error, logout],
+    () => ({ user, accessToken, loading, error, logout, request: apiRequest }),
+    [user, accessToken, loading, error, logout],
   );
   return <WatchRoomContext.Provider value={value}>{children}</WatchRoomContext.Provider>;
 }

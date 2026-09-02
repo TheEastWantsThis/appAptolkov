@@ -84,15 +84,62 @@ const roomPreview = {
 };
 
 async function json(route: Route, body: unknown, status = 200) {
-  await route.fulfill({ json: body, status });
+  await route.fulfill({
+    headers: {
+      "access-control-allow-credentials": "true",
+      "access-control-allow-origin": "http://localhost:3000",
+    },
+    json: body,
+    status,
+  });
+}
+
+async function corsPreflight(route: Route): Promise<boolean> {
+  if (route.request().method() !== "OPTIONS") return false;
+  await route.fulfill({
+    status: 204,
+    headers: {
+      "access-control-allow-credentials": "true",
+      "access-control-allow-headers": "authorization,content-type,x-csrf-token,x-room-grant",
+      "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
+      "access-control-allow-origin": "http://localhost:3000",
+    },
+  });
+  return true;
+}
+
+async function mockTelegram(context: BrowserContext) {
+  await context.route("https://telegram.org/js/telegram-web-app.js**", async (route) => {
+    await route.fulfill({ body: "", contentType: "application/javascript", status: 200 });
+  });
+  await context.addInitScript(() => {
+    window.Telegram = {
+      WebApp: {
+        initData: "auth_date=1&query_id=e2e&hash=test",
+        colorScheme: "light",
+        themeParams: {},
+        viewportStableHeight: 800,
+        onEvent: () => undefined,
+        offEvent: () => undefined,
+        ready: () => undefined,
+      },
+    };
+  });
 }
 
 async function mockApi(context: BrowserContext) {
+  await mockTelegram(context);
   await context.route("http://localhost:4000/v1/**", async (route) => {
+    if (await corsPreflight(route)) return;
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
-    if (path === "/v1/auth/telegram") return json(route, { csrfToken: "x".repeat(32), user });
+    if (path === "/v1/auth/telegram")
+      return json(route, {
+        accessToken: "a".repeat(43),
+        csrfToken: "x".repeat(32),
+        user,
+      });
     if (path === `/v1/rooms/${publicId}/unlock`) {
       const body = request.postDataJSON() as { password?: string };
       if (body.password !== "correct-password")
@@ -141,6 +188,7 @@ async function mockApi(context: BrowserContext) {
 }
 
 async function mockLifecycleApi(context: BrowserContext, actor: "owner" | "viewer") {
+  await mockTelegram(context);
   const actorUser = actor === "owner" ? { ...user, id: ownerId, firstName: "Анна" } : user;
   const channel = {
     id: channelId,
@@ -157,10 +205,15 @@ async function mockLifecycleApi(context: BrowserContext, actor: "owner" | "viewe
     updatedAt: now,
   };
   await context.route("http://localhost:4000/v1/**", async (route) => {
+    if (await corsPreflight(route)) return;
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path === "/v1/auth/telegram")
-      return json(route, { csrfToken: "x".repeat(32), user: actorUser });
+      return json(route, {
+        accessToken: "a".repeat(43),
+        csrfToken: "x".repeat(32),
+        user: actorUser,
+      });
     if (path === "/v1/channels" && request.method() === "GET") return json(route, { channels: [] });
     if (path === "/v1/channels" && request.method() === "POST")
       return json(route, { channel }, 201);

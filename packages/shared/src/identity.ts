@@ -20,6 +20,7 @@ export const TelegramAuthRequestSchema = z.object({
 });
 
 export const AuthResponseSchema = z.object({
+  accessToken: z.string().min(32),
   csrfToken: z.string().min(32),
   user: UserSchema,
 });

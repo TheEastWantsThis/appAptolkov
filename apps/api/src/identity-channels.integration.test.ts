@@ -80,6 +80,7 @@ describe("identity and channel authorization", () => {
       payload: { initData: sign(40, "logout") },
     });
     const cookie = cookieOf(auth);
+    expect(auth.json().accessToken).toMatch(/^[A-Za-z0-9_-]{32,}$/);
     const session = await runtime.app.inject({
       method: "GET",
       url: "/v1/auth/session",
@@ -88,6 +89,12 @@ describe("identity and channel authorization", () => {
     expect(session.statusCode).toBe(200);
     expect(session.headers["x-request-id"]).toMatch(/^[0-9a-f-]{36}$/);
     expect(session.headers["cache-control"]).toBe("no-store");
+    const bearerSession = await runtime.app.inject({
+      method: "GET",
+      url: "/v1/auth/session",
+      headers: { authorization: `Bearer ${auth.json().accessToken as string}` },
+    });
+    expect(bearerSession.statusCode).toBe(200);
 
     const withoutCsrf = await runtime.app.inject({
       method: "POST",
@@ -116,6 +123,34 @@ describe("identity and channel authorization", () => {
         })
       ).statusCode,
     ).toBe(401);
+
+    const bearerAuth = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/auth/telegram",
+      headers: { origin: config.WEB_ORIGIN },
+      payload: { initData: sign(41, "bearer") },
+    });
+    const bearer = bearerAuth.json().accessToken as string;
+    const bearerMutation = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/channels",
+      headers: {
+        authorization: `Bearer ${bearer}`,
+        origin: config.WEB_ORIGIN,
+      },
+      payload: { name: "Мобильный канал", slug: "mobile-channel", visibility: "PUBLIC" },
+    });
+    expect(bearerMutation.statusCode, bearerMutation.body).toBe(201);
+    const bearerLogout = await runtime.app.inject({
+      method: "POST",
+      url: "/v1/auth/logout",
+      headers: {
+        authorization: `Bearer ${bearer}`,
+        origin: config.WEB_ORIGIN,
+      },
+      payload: {},
+    });
+    expect(bearerLogout.statusCode).toBe(204);
   });
 
   it("upserts one user for repeated telegram user id and blocks initData replay", async () => {

@@ -238,10 +238,15 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
   };
   io.use(async (socket, next) => {
     const cookieHeader = socket.handshake.headers.cookie ?? "";
-    const token = cookieHeader
-      .split("; ")
-      .find((part) => part.startsWith(`${sessionCookie}=`))
-      ?.slice(sessionCookie.length + 1);
+    const socketAccessToken = socket.handshake.auth?.accessToken;
+    const token =
+      (typeof socketAccessToken === "string" && socketAccessToken.length <= 256
+        ? socketAccessToken
+        : null) ??
+      cookieHeader
+        .split("; ")
+        .find((part) => part.startsWith(`${sessionCookie}=`))
+        ?.slice(sessionCookie.length + 1);
     const session = token ? await watchStore.findSession(sha256(token)) : null;
     if (!session) return next(new Error("AUTH_REQUIRED"));
     socket.data.userId = session.user.id;
@@ -567,19 +572,39 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
       });
   });
 
-  async function optionalUser(
-    request: FastifyRequest,
-  ): Promise<{ user: UserDto; csrfTokenHash: string; tokenHash: string } | null> {
-    const token = request.cookies[sessionCookie];
+  async function optionalUser(request: FastifyRequest): Promise<{
+    user: UserDto;
+    csrfTokenHash: string;
+    tokenHash: string;
+    credential: "BEARER" | "COOKIE";
+  } | null> {
+    const authorization = request.headers.authorization;
+    const bearerMatch =
+      typeof authorization === "string"
+        ? /^Bearer ([A-Za-z0-9_-]{32,256})$/.exec(authorization)
+        : null;
+    const token = bearerMatch?.[1] ?? request.cookies[sessionCookie];
     if (!token) return null;
     const tokenHash = sha256(token);
     const session = await watchStore.findSession(tokenHash);
-    return session ? { user: session.user, csrfTokenHash: session.csrfTokenHash, tokenHash } : null;
+    return session
+      ? {
+          user: session.user,
+          csrfTokenHash: session.csrfTokenHash,
+          tokenHash,
+          credential: bearerMatch ? "BEARER" : "COOKIE",
+        }
+      : null;
   }
   async function requireUser(
     request: FastifyRequest,
     mutation = false,
-  ): Promise<{ user: UserDto; csrfTokenHash: string; tokenHash: string }> {
+  ): Promise<{
+    user: UserDto;
+    csrfTokenHash: string;
+    tokenHash: string;
+    credential: "BEARER" | "COOKIE";
+  }> {
     const session = await optionalUser(request);
     if (!session)
       throw new AppError(
@@ -590,9 +615,11 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
     if (mutation) {
       if (request.headers.origin !== config.WEB_ORIGIN)
         throw new AppError(403, "INVALID_ORIGIN", "Источник запроса не разрешён.");
-      const csrf = request.headers["x-csrf-token"];
-      if (typeof csrf !== "string" || !equalSecret(sha256(csrf), session.csrfTokenHash))
-        throw new AppError(403, "INVALID_CSRF", "Защитный токен запроса недействителен.");
+      if (session.credential === "COOKIE") {
+        const csrf = request.headers["x-csrf-token"];
+        if (typeof csrf !== "string" || !equalSecret(sha256(csrf), session.csrfTokenHash))
+          throw new AppError(403, "INVALID_CSRF", "Защитный токен запроса недействителен.");
+      }
     }
     return session;
   }
@@ -808,7 +835,7 @@ export function createApi(config: ApiConfig, overrides: ApiOverrides = {}): ApiR
       ...sessionCookieOptions(config.NODE_ENV),
       maxAge: config.SESSION_TTL_SECONDS,
     });
-    return { csrfToken, user };
+    return { accessToken: token, csrfToken, user };
   });
 
   app.get("/v1/auth/session", async (request) => ({ user: (await requireUser(request)).user }));

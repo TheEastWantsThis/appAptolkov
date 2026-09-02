@@ -1,6 +1,6 @@
 # WatchRoom — статус реализации
 
-Обновлено 1 сентября 2026 года по коду, deployment status и фактическим smoke-командам.
+Обновлено 2 сентября 2026 года по коду, deployment status и фактическим smoke-командам.
 
 ## Этапы 1–10 и финальный аудит
 
@@ -20,6 +20,7 @@
 
 ## Последние закрытые дефекты
 
+- Мобильная Telegram-аутентификация больше не зависит от cross-site cookie Vercel→Render: opaque session token хранится только в `sessionStorage`, передаётся как Bearer для REST и Socket.IO auth, остаётся hashed/revocable на сервере; cookie/CSRF сохранены как fallback. Клиент до 1,5 секунды ожидает позднюю инициализацию Telegram `initData` и показывает конкретную ошибку при его отсутствии.
 - Комната упрощена под мобильный сценарий: отдельные start/play/pause/seek controls удалены, разрешённые play/pause теперь отправляются из событий официального плеера; close у mini-player удалён, режимы переключаются компактными icon-кнопками.
 - Чат перенесён сразу под видео, получил Telegram-подобные bubbles, собственные сообщения справа, автопрокрутку, компактный composer и удаление только через меню сообщения.
 - Deep link routing теперь учитывает signed `start_param`, query/hash launch parameters и `initDataUnsafe.start_param` только как недоверенную навигационную подсказку; доступ к комнате по-прежнему проверяет сервер.
@@ -53,7 +54,7 @@
 
 - Web: `https://watchroom-miniapp.vercel.app` — Vercel production `Ready`.
 - API/WSS: `https://watchroom-api-e5sf.onrender.com` — Render Free `Live`.
-- PostgreSQL 17: `watchroom-db` — Render Free `Available`; все 8 миграций применены.
+- PostgreSQL 17: `watchroom-db` — Render Free `Available`; все 9 миграций применены.
 - `pnpm release:smoke`: PASS для web health, API liveness/readiness с database check, CSP и unauthenticated WSS boundary.
 - Production browser без Telegram initData корректно получает отказ. Bot identity зафиксирован как `@WatchRoomTogether_bot` с Mini App short name `watchroom`; реальный Telegram launch ещё не подтверждён.
 

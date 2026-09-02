@@ -14,7 +14,7 @@ Invite строится как `startapp=room_<publicId>` и отдельный 
 
 ## Реализованный identity/channel slice
 
-`apps/web` передаёт raw `Telegram.WebApp.initData` в `POST /v1/auth/telegram`. API валидирует Telegram HMAC и свежесть, атомарно upsert-ит User, регистрирует replay digest и выдаёт opaque session cookie. Все channel-мутации проходят session, exact-Origin, CSRF и owner authorization. Prisma 7.10 работает через обязательный `@prisma/adapter-pg`; схема и миграции находятся в `prisma/`.
+`apps/web` передаёт raw `Telegram.WebApp.initData` в `POST /v1/auth/telegram`. API валидирует Telegram HMAC и свежесть, атомарно upsert-ит User, регистрирует replay digest и выдаёт opaque server session. Same-site production использует HttpOnly cookie; временный cross-site Vercel/Render deploy использует тот же opaque token как Bearer из `sessionStorage`, потому что мобильные Telegram WebView не гарантируют third-party cookie. Все channel-мутации проходят session, exact-Origin и owner authorization; cookie-режим дополнительно требует CSRF. Prisma 7.10 работает через обязательный `@prisma/adapter-pg`; схема и миграции находятся в `prisma/`.
 
 Публичный Channel доступен на чтение без членства; PRIVATE возвращается только участнику. Channel — внутренняя сущность WatchRoom и не создаёт Telegram-канал. API зависит от `WatchRoomStore`, поэтому тесты используют in-memory реализацию, а production — PostgreSQL/Prisma.
 
@@ -102,8 +102,8 @@ Realtime-команда содержит `commandId` и `expectedVersion`. API �
 1. Клиент отправляет исходную строку `Telegram.WebApp.initData` по HTTPS на `POST /v1/auth/telegram`.
 2. API разбирает query string без изменения закодированных значений, отделяет `hash`, сортирует остальные `key=value` и проверяет HMAC-SHA-256 по алгоритму Telegram.
 3. API constant-time сравнивает hash, проверяет `auth_date` (целевой максимум 5 минут, конфигурируемый), наличие `user`, формат JSON и Telegram user ID.
-4. После upsert пользователя API выпускает случайную серверную сессию. Предпочтение — `Secure; HttpOnly; SameSite=Lax` cookie на общем site (`app.example.com`/`api.example.com`) плюс Origin/CSRF-защита; raw `initData` больше не используется как session token.
-5. Socket.IO handshake использует ту же cookie-сессию и проверенный `Origin`. Token в query string запрещён.
+4. После upsert пользователя API выпускает случайную серверную сессию. Предпочтение — `Secure; HttpOnly; SameSite=Lax` cookie на общем site (`app.example.com`/`api.example.com`). В cross-site closed-test deploy токен возвращается как Bearer и живёт только в `sessionStorage`; raw `initData` больше не используется как session token.
+5. Socket.IO handshake использует ту же server-side session через cookie либо `auth.accessToken` и всегда проверенный `Origin`. Token в query string запрещён.
 
 ### Создание/изменение источника
 
